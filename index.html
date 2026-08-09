@@ -563,7 +563,9 @@ addEventListener('DOMContentLoaded',()=>{
   let active=localStorage.getItem(ACTIVE_KEY);if(!profiles.some(([id])=>id===active)){active='frenswa';localStorage.setItem(ACTIVE_KEY,active);if(!localStorage.getItem(PROFILE_PREFIX+active))saveProfile(active)}
   const header=document.querySelector('header');if(!header||document.getElementById('profileSwitcher'))return;
   const switcher=document.createElement('div');switcher.id='profileSwitcher';switcher.className='profile-switcher';switcher.setAttribute('role','tablist');switcher.setAttribute('aria-label','Player profile');
-  for(const[id,label]of profiles){const button=document.createElement('button');button.type='button';button.className='profile-tab'+(id===active?' active':'');button.textContent=label;button.dataset.profile=id;button.setAttribute('role','tab');button.setAttribute('aria-selected',id===active?'true':'false');button.addEventListener('click',async()=>{if(id===active)return;try{await window.saveAllStats?.();saveProfile(active);restoreProfile(id);location.reload()}catch(error){console.error('Profile switch failed',error);button.textContent='Retry'}});switcher.append(button)}
+  window.applyActiveProfileState=async function(profile,{simulate=true}={}){let simple={};try{simple=JSON.parse(localStorage.getItem('obelisk-simple')||'{}')}catch{};for(const[id,value]of Object.entries(simple))if(document.getElementById(id))document.getElementById(id).value=value;for(const id of ['t2','t3','t4']){const field=document.getElementById(id);if(field)field.value=localStorage.getItem('obelisk-'+id)||'0'}const gemDouble=document.getElementById('gemDouble');if(gemDouble)gemDouble.setAttribute('aria-pressed',localStorage.getItem('obelisk-gem-double')==='1'?'true':'false');renderShopLevels();window.applyShopChain?.();updateGemShopCaps();updateComputedStats();updateEnemySummary();updatePrestigeButton();window.updateCurrencyRates?.();switcher.querySelectorAll('.profile-tab').forEach(tab=>{const selected=tab.dataset.profile===profile;tab.classList.toggle('active',selected);tab.setAttribute('aria-selected',selected?'true':'false')});if(simulate)window.runFullSimulation?.()};
+  const releaseTabsAfterSimulation=()=>{const simulation=document.getElementById('simulateButton');if(simulation?.disabled){setTimeout(releaseTabsAfterSimulation,100);return}switcher.querySelectorAll('.profile-tab').forEach(tab=>tab.disabled=false)};
+  for(const[id,label]of profiles){const button=document.createElement('button');button.type='button';button.className='profile-tab'+(id===active?' active':'');button.textContent=label;button.dataset.profile=id;button.setAttribute('role','tab');button.setAttribute('aria-selected',id===active?'true':'false');button.addEventListener('click',async()=>{if(id===active)return;const simulation=document.getElementById('simulateButton');if(simulation?.disabled){const original=button.textContent;button.textContent='Wait…';setTimeout(()=>button.textContent=original,800);return}switcher.querySelectorAll('.profile-tab').forEach(tab=>tab.disabled=true);try{await window.saveAllStats?.();saveProfile(active);restoreProfile(id);active=id;await window.applyActiveProfileState(id,{simulate:false});await window.loadCloudProfile?.(false,{simulate:false});window.runFullSimulation?.();releaseTabsAfterSimulation()}catch(error){console.error('Profile switch failed',error);button.textContent='Retry';switcher.querySelectorAll('.profile-tab').forEach(tab=>tab.disabled=false)}});switcher.append(button)}
   header.prepend(switcher);addEventListener('beforeunload',()=>{try{saveProfile(localStorage.getItem(ACTIVE_KEY)||active)}catch{}},{capture:true})
 })();
 </script>
@@ -593,7 +595,7 @@ addEventListener('DOMContentLoaded',()=>{
     try{const{response,data}=await request('/api/login',{method:'POST',body:JSON.stringify({password})});if(!response.ok){setStatus(response.status===503?'Setup needed':'Wrong password','error',data.error);return false}return true}catch(error){console.error(error);setStatus('Offline','error','Cloud unavailable');return false}
   }
 
-  async function loadCloudProfile(allowLogin=false){
+  async function loadCloudProfile(allowLogin=false,{simulate=true}={}){
     const profile=activeProfile();setStatus('Syncing','working');
     try{
       let result=await request('/api/profiles/'+profile);
@@ -608,7 +610,7 @@ addEventListener('DOMContentLoaded',()=>{
       if(!statesEqual(localState,remoteState)){
         const appliedKey=APPLIED_PREFIX+profile;
         if(sessionStorage.getItem(appliedKey)!==String(remoteRevision)){
-          replaceState(profile,remoteState);sessionStorage.setItem(appliedKey,String(remoteRevision));location.reload();return true
+          replaceState(profile,remoteState);sessionStorage.setItem(appliedKey,String(remoteRevision));await window.applyActiveProfileState?.(profile,{simulate});return true
         }
       }
       setStatus('Synced','online','Cloud profile up to date');return true
@@ -623,7 +625,7 @@ addEventListener('DOMContentLoaded',()=>{
       if(result.response.status===401){setStatus('Cloud login','','Click to connect cloud sync');return false}
       if(result.response.status===409){
         setRevision(profile,result.data.revision||0);setStatus('Newer save','error','A newer cloud save exists');
-        if(confirm('A newer cloud save exists. Load it on this device?')){replaceState(profile,result.data.state||{});sessionStorage.setItem(APPLIED_PREFIX+profile,String(result.data.revision||0));location.reload()}
+        if(confirm('A newer cloud save exists. Load it on this device?')){replaceState(profile,result.data.state||{});sessionStorage.setItem(APPLIED_PREFIX+profile,String(result.data.revision||0));await window.applyActiveProfileState?.(profile,{simulate:true})}
         return false
       }
       if(!result.response.ok){setStatus(result.response.status===503?'Setup needed':'Save error','error',result.data.error);return false}
@@ -633,11 +635,12 @@ addEventListener('DOMContentLoaded',()=>{
 
   const localSave=window.saveAllStats;
   window.saveAllStats=async function(button){localSave?.(button);const saved=await saveCloudProfile(true);if(button&&saved){button.textContent='✓ Saved Online';button.style.background='#23845f'}};
+  window.loadCloudProfile=loadCloudProfile;window.saveCloudProfile=saveCloudProfile;
   cloudButton.addEventListener('click',()=>loadCloudProfile(true));
   loadCloudProfile(false);
 })();
 </script>
-<div class="app-version" aria-label="Version 0.23.0.0">v0.23.0.0</div>
+<div class="app-version" aria-label="Version 0.23.1.0">v0.23.1.0</div>
 </body></html>
 
 

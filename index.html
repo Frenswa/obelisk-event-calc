@@ -233,17 +233,17 @@ addEventListener('DOMContentLoaded',function(){
     }).join('');
   }
   function renderRank(rank){
-    var pack=data[rank],records=pack.records,target=records[records.length-1].wave;
+    var pack=data[rank],records=pack.records,target=Number(pack.config&&pack.config.maxWave)||records[records.length-1].wave,verifiedTarget=records[records.length-1].wave;
     tabs.querySelectorAll('button').forEach(function(button){var active=Number(button.dataset.pr)===rank;button.classList.toggle('active',active);button.setAttribute('aria-selected',String(active))});
     var reached=rank<40?target+1:target;
-    meta.innerHTML='<span><b>Référence PR'+rank+'</b></span><span>Clear V3–V'+target+' · atteint V'+reached+'</span><span>'+records.length+' étapes</span><span>seuil fiable ≥ 51 %</span>';
+    meta.innerHTML='<span><b>Référence PR'+rank+'</b></span><span>Objectif V'+reached+' · vérifiée jusqu’à V'+verifiedTarget+'</span><span>'+records.length+' étapes</span>'+(pack.excludedRecords?'<span>'+pack.excludedRecords+' lignes obsolètes écartées</span>':'')+'<span>seuil fiable ≥ 51 %</span>';
     var cumulative=[0,0,0,0];
     rows.innerHTML=records.map(function(record,index){
       cumulative=cumulative.map(function(value,index){return value+(Number(record.spent[index])||0)});
       return '<tr><td><b>Clear V'+record.wave+'</b><br><span class="hint">atteindre V'+(record.wave+1)+'</span></td><td>'+statLine(record,records[index-1]||null,rank)+'</td><td>'+purchases(record)+'</td><td>'+costs(record.spent)+'</td><td>'+costs(cumulative)+'</td></tr>';
     }).join('');
   }
-  tabs.innerHTML=ranks.map(function(rank,index){var target=data[rank].records[data[rank].records.length-1].wave,reached=rank<40?target+1:target,label=rank<40?'atteindre V'+reached:'terminer V'+target;return '<button class="precalc-pr-tab'+(index===0?' active':'')+'" type="button" data-pr="'+rank+'" role="tab" aria-selected="'+(index===0?'true':'false')+'">PR'+rank+' → '+label+'</button>'}).join('');
+  tabs.innerHTML=ranks.map(function(rank,index){var records=data[rank].records,target=Number(data[rank].config&&data[rank].config.maxWave)||records[records.length-1].wave,reached=rank<40?target+1:target,label=rank<40?'atteindre V'+reached:'terminer V'+target;return '<button class="precalc-pr-tab'+(index===0?' active':'')+'" type="button" data-pr="'+rank+'" role="tab" aria-selected="'+(index===0?'true':'false')+'">PR'+rank+' → '+label+'</button>'}).join('');
   tabs.addEventListener('click',function(event){var button=event.target.closest('[data-pr]');if(button)renderRank(Number(button.dataset.pr))});
   nav.addEventListener('click',function(event){var button=event.target.closest('[data-data-mode]');if(!button)return;var mode=button.dataset.dataMode;nav.querySelectorAll('button').forEach(function(item){var active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-selected',String(active))});base.hidden=mode!=='base';progressions.hidden=mode!=='progressions'});
   renderRank(ranks[0]);
@@ -580,7 +580,7 @@ addEventListener('DOMContentLoaded',()=>{
   let active=localStorage.getItem(ACTIVE_KEY);if(!profiles.some(([id])=>id===active)){active='frenswa';localStorage.setItem(ACTIVE_KEY,active);if(!localStorage.getItem(PROFILE_PREFIX+active))saveProfile(active)}
   const header=document.querySelector('header');if(!header||document.getElementById('profileSwitcher'))return;
   const switcher=document.createElement('div');switcher.id='profileSwitcher';switcher.className='profile-switcher';switcher.setAttribute('role','tablist');switcher.setAttribute('aria-label','Player profile');
-  const resultCache=new Map,resultCard=()=>document.getElementById('simulateButton')?.closest('.card');
+  const resultCache=new Map,resultCard=()=>document.getElementById('plan')?.closest('.card');
   const snapshotResult=profile=>{const card=resultCard(),prediction=document.getElementById('predictionCard');if(card)resultCache.set(profile,{html:card.innerHTML,predictionHtml:prediction?.innerHTML||'',unifiedRouteChoice:window.unifiedRouteChoice,combinedRouteChoice:window.combinedRouteChoice})};
   const clearResult=()=>{document.querySelector('.metrics')?.classList.add('awaiting-simulation');for(const id of ['runTime','blueMin','rateTier2','rateTier3','rateTier4']){const element=document.getElementById(id);if(element)element.textContent='—'}for(let tier=2;tier<=4;tier++){const card=document.getElementById('rateCard'+tier);if(card)card.style.display='none'}const deathAt=document.getElementById('deathAt'),deathChance=document.getElementById('deathChance'),deathInfo=document.getElementById('deathInfo'),deathOdds=document.getElementById('deathOdds'),plan=document.getElementById('plan'),simulation=document.getElementById('simulateButton'),afk=document.getElementById('afkButton');if(deathAt)deathAt.textContent='—';if(deathChance)deathChance.textContent='';if(deathInfo)deathInfo.textContent='No saved simulation for this profile.';if(deathOdds)deathOdds.innerHTML='';if(plan)plan.innerHTML='<div class="empty">Click Simulate to calculate this profile.</div>';document.getElementById('speedAlternative')?.remove();if(simulation){simulation.disabled=false;simulation.textContent='Simulate';simulation.style.background='#183a5b';simulation.style.opacity='1'}if(afk){afk.disabled=false;afk.textContent='Simulate AFK · 8 h'}window.unifiedRouteChoice=null;window.combinedRouteChoice=null};
   const restoreResult=profile=>{const cached=resultCache.get(profile),card=resultCard(),prediction=document.getElementById('predictionCard');if(!cached||!card){clearResult();return}card.innerHTML=cached.html;if(prediction&&cached.predictionHtml)prediction.innerHTML=cached.predictionHtml;window.unifiedRouteChoice=cached.unifiedRouteChoice;window.combinedRouteChoice=cached.combinedRouteChoice;window.ensureCurrencyRateCards?.();window.bindAfkButton?.()};
@@ -663,8 +663,92 @@ addEventListener('DOMContentLoaded',()=>{
   loadCloudProfile(false);
 })();
 </script>
+<script src="engine/core.js"></script>
+<script src="engine/combat.js"></script>
+<script src="engine/economy.js"></script>
+<script src="engine/shops.js"></script>
+<script src="engine/route.js"></script>
+<style>
+.route-engine-status{display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:7px 12px;border-bottom:1px solid #263250;background:#0d1425;color:#8492b2;font-size:10px;font-weight:800;letter-spacing:.03em}
+.route-engine-status.verified:before{content:'✓';color:#55d6a0}.route-engine-status.invalid{justify-content:flex-start;color:#ff9bad;background:#2a141c}.route-engine-status.invalid:before{content:'!';color:#ff6b7e}
+</style>
+<script id="engineIntegration">
+(function(){
+  var engine=window.ObeliskEngine;if(!engine?.combat||!engine?.economy||!engine?.route)return;
+  var progressionData=window.OBELISK_PRECALCULATED_PROGRESSIONS;
+  if(progressionData){
+    var sanitized=engine.route.sanitizeProgressions(progressionData,{tiers:DATA.upgrade.tiers,growth:DATA.upgrade.growth});
+    window.OBELISK_PRECALCULATED_AUDIT=sanitized.invalid;
+    window.precalculatedMilestoneFor=function(pr){var ranks=Object.keys(progressionData).map(Number).filter(function(rank){return rank<=pr}).sort(function(a,b){return b-a});if(!ranks.length)return null;var rank=ranks[0],pack=progressionData[rank],records=pack.records,wave=(Number(pack.config&&pack.config.maxWave)||records[records.length-1].wave)+1;return{rank:rank,wave:wave}}
+  }
+  function runCombat(stats,maxWave,stochastic,seed,gauge){
+    var result=engine.combat.simulateRun({rules:DATA,stats:stats,reductions:enemyMods(),maxWave:maxWave||250,stochastic:stochastic,seed:seed,playerGaugePercent:gauge});
+    result.blue=engine.economy.rewardsForWave(result.lastWave)[0];
+    return result
+  }
+  simulate=function(stats,maxWave){return runCombat(stats,maxWave,false,0,50)};
+  simulateChance=function(stats,gauge,seed,maxWave){return runCombat(stats,maxWave,true,seed,gauge)};
+
+  function installEconomy(){
+    window.rewardsForWave=function(completed){return engine.economy.rewardsForWave(completed)};
+    window.dropExpectedMultiplier=function(stats){return engine.economy.dropExpectedMultiplier((stats||effectiveStats()).dropChance)};
+    window.expectedRewardsForWave=function(completed,stats){stats=stats||effectiveStats();return engine.economy.expectedRewards(completed,{dropChance:stats.dropChance,currencyMultiplier:stats.currencyMultiplier})};
+    blueTo=function(wave){return engine.economy.rewardsForWave(wave)[0]}
+  }
+  if(document.readyState==='loading')addEventListener('DOMContentLoaded',installEconomy,{once:true});else installEconomy();
+
+  var baseRouteRender=window.renderUnifiedRoute;
+  if(typeof baseRouteRender==='function')window.renderUnifiedRoute=async function(){
+    await baseRouteRender.apply(this,arguments);
+    var result=window.unifiedRouteChoice,plan=document.getElementById('plan');if(!result?.choice||!plan)return;
+    var validation=engine.route.validateRouteState({tiers:DATA.upgrade.tiers,growth:DATA.upgrade.growth,prestigeRank:currentPrestigeRank(),startLevels:currentLevels(),finalLevels:result.choice.levels,expectedSpent:result.choice.spent});
+    result.engineValidation=validation;
+    if(!validation.valid){
+      console.error('Rejected invalid route',validation.errors);
+      plan.innerHTML='<div class="route-engine-status invalid">Route refusée par la vérification des boutiques</div><div class="empty">Une incohérence de niveau, de prérequis, de cap ou de coût a été détectée. Relance la simulation.</div>';
+      window.unifiedRouteChoice=null;
+      return
+    }
+    var source=engine.route.routeSource(result),status=document.createElement('div');status.className='route-engine-status verified';status.textContent='Source : '+source.label+' · route vérifiée';plan.prepend(status)
+  };
+  window.ObeliskEngineIntegration={version:'1.0.0',installEconomy:installEconomy}
+})();
+</script>
+<style id="dashboardLayoutStyle">
+.dashboard-config-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0 0;padding:5px;border:1px solid #2d385d;border-radius:10px;background:#0b1020}
+.dashboard-config-tab{padding:7px 8px;border:1px solid transparent;border-radius:7px;background:transparent;color:#8f9cba;font:inherit;font-size:11px;font-weight:900;cursor:pointer}
+.dashboard-config-tab:hover{background:#17213a;color:#fff}.dashboard-config-tab.active{border-color:#4b78a8;background:#193b5d;color:#dff3ff}
+.dashboard-config-panel[hidden]{display:none!important}.dashboard-config-panel>summary{display:none}.dashboard-config-panel{margin-top:8px!important}
+@media(min-width:1181px){
+  body.dashboard-mode{height:100dvh;overflow:hidden}.dashboard-mode .wrap{height:100dvh;width:min(1500px,calc(100% - 24px));padding:8px 0 10px;display:flex;flex-direction:column;overflow:hidden}
+  .dashboard-mode header{min-height:42px;margin:0 0 8px;display:flex;align-items:center;gap:8px}.dashboard-mode .profile-switcher{margin:0}.dashboard-mode header>.foot{margin:0 0 0 auto;display:flex!important;flex-wrap:nowrap!important;gap:6px!important}
+  .dashboard-mode header>.foot button{width:auto!important;max-width:190px;padding:7px 10px!important;border-radius:8px!important;font-size:11px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dashboard-mode header>.dashboard-sim-actions{display:flex;align-items:center;gap:6px;margin-left:0}.dashboard-mode header>.dashboard-sim-actions button{min-height:32px}
+  .dashboard-mode .prediction-hero{flex:0 0 auto;width:100%;margin:0 0 8px;padding:10px 16px;box-shadow:0 10px 25px #0004;text-align:left}.dashboard-mode .prediction-hero .odds{justify-content:flex-start;margin-top:5px}.dashboard-mode .prediction-hero b{font-size:23px;margin:1px 0}.dashboard-mode .prediction-hero p{justify-content:flex-start}.dashboard-mode .odd{padding:3px 7px}
+  .dashboard-mode .layout{flex:1;min-height:0;grid-template-columns:minmax(480px,.82fr) minmax(650px,1.18fr);gap:10px}.dashboard-mode .layout>.card{height:100%;min-height:0;display:flex;flex-direction:column;border-radius:14px}.dashboard-mode .layout>.card>.head{flex:0 0 auto;padding:10px 14px}.dashboard-mode .layout>.card>.body{flex:1;min-height:0;padding:10px 14px}
+  .dashboard-mode .layout>.card:first-child>.body{display:flex;flex-direction:column;overflow:hidden}.dashboard-mode .layout>.card:first-child>.body>.eyebrow{margin-bottom:4px!important}.dashboard-mode .layout>.card:first-child>.body>.fields{flex:0 0 auto;gap:7px}.dashboard-mode .layout>.card:first-child>.body>.fields input{padding:7px 9px}.dashboard-mode .layout>.card:first-child>.body>div[style*="height:1px"]{margin:9px 0!important}
+  .dashboard-mode .dashboard-config-tabs{flex:0 0 auto}.dashboard-mode .dashboard-config-panel{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}.dashboard-mode .input-panel-body{padding:10px}.dashboard-mode .main-shop-panel{padding:10px}.dashboard-mode .main-shop-panel .fields{gap:8px}.dashboard-mode .main-shop-panel input{padding:8px 9px}
+  .dashboard-mode .layout>.card:last-child>.body{display:flex;flex-direction:column;overflow:hidden}.dashboard-mode .metrics{flex:0 0 auto;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}.dashboard-mode .metric{padding:9px 10px}.dashboard-mode .metric strong{font-size:20px}.dashboard-mode #plan{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;gap:0;margin-top:8px}.dashboard-mode #plan>.purchase-group{min-width:0;margin:8px}.dashboard-mode #plan>.purchase-group.now{grid-column:1}.dashboard-mode #plan>.purchase-group.later{grid-column:2}.dashboard-mode #plan>.summary,.dashboard-mode #plan>.stat-objective,.dashboard-mode #plan>.route-engine-status,.dashboard-mode #plan>.empty,.dashboard-mode #plan>.plan-title,.dashboard-mode #plan>.upgrade{grid-column:1/-1}.dashboard-mode #plan>.purchase-group .upgrade{padding:8px 10px;font-size:12px}.dashboard-mode #plan>.purchase-group-actions{padding:5px 7px}.dashboard-mode #plan>.summary{padding:9px 12px}.dashboard-mode #plan>.stat-objective{order:5}.dashboard-mode #speedAlternative{max-height:40%;overflow:auto}
+}
+@media(max-width:1180px){body.dashboard-mode{overflow:auto}.dashboard-mode header>.foot{margin:8px 0}.dashboard-mode .dashboard-sim-actions{display:flex;gap:7px;margin-left:auto}.dashboard-mode #plan>.purchase-group{margin:9px}.dashboard-mode .dashboard-config-panel{overflow:visible}}
+@media(max-width:600px){.dashboard-config-tabs{position:sticky;top:0;z-index:4}.dashboard-mode header{display:flex;flex-wrap:wrap}.dashboard-mode header>.foot{width:100%}.dashboard-mode header>.foot button{flex:1;min-width:0}.dashboard-mode .dashboard-sim-actions{width:100%;justify-content:flex-end}}
+</style>
+<script id="dashboardLayoutScript">
+addEventListener('DOMContentLoaded',function(){
+  document.body.classList.add('dashboard-mode');
+  var header=document.querySelector('main.wrap>header'),dataCard=document.querySelector('.layout>.card:first-child'),dataBody=dataCard?.querySelector(':scope>.body');
+  var resultActions=document.querySelector('.result-controls>div');if(header&&resultActions){resultActions.classList.add('dashboard-sim-actions');header.append(resultActions)}
+  var footer=document.querySelector('main.wrap>.foot');if(header&&footer)header.append(footer);
+  if(!dataBody||document.getElementById('dashboardConfigTabs'))return;
+  var panels=[['stats','Stats',dataBody.querySelector('.stats-panel')],['shops','Shops',dataBody.querySelector('.shop-panel')],['gems','Gems',dataBody.querySelector('.gem-panel')]].filter(function(entry){return entry[2]});
+  var tabs=document.createElement('div');tabs.id='dashboardConfigTabs';tabs.className='dashboard-config-tabs';tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Data panels');
+  var activate=function(name){panels.forEach(function(entry){var active=entry[0]===name;entry[2].hidden=!active;entry[2].open=active;entry[2].classList.add('dashboard-config-panel')});tabs.querySelectorAll('button').forEach(function(button){var active=button.dataset.panel===name;button.classList.toggle('active',active);button.setAttribute('aria-selected',String(active))});localStorage.setItem('obelisk-dashboard-panel',name)};
+  panels.forEach(function(entry){var button=document.createElement('button');button.type='button';button.className='dashboard-config-tab';button.dataset.panel=entry[0];button.textContent=entry[1];button.setAttribute('role','tab');button.addEventListener('click',function(){activate(entry[0])});tabs.append(button)});
+  dataBody.insertBefore(tabs,panels[0][2]);var saved=localStorage.getItem('obelisk-dashboard-panel');activate(panels.some(function(entry){return entry[0]===saved})?saved:'shops')
+});
+</script>
 <script>addEventListener('DOMContentLoaded',()=>{const removeQuickActionsFromTabOrder=()=>document.querySelectorAll('.shop-buy-plus,.gem-step,#highestWavePlus,#prestigePlus').forEach(button=>button.tabIndex=-1);removeQuickActionsFromTabOrder();const shopLevels=document.getElementById('shopLevels');if(shopLevels)new MutationObserver(removeQuickActionsFromTabOrder).observe(shopLevels,{childList:true,subtree:true})})</script>
-<div class="app-version" aria-label="Version 0.23.1.8">v0.23.1.8</div>
+<div class="app-version" aria-label="Version 0.23.2.0">v0.23.2.0</div>
 </body></html>
 
 

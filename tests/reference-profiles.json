@@ -1,0 +1,25 @@
+[
+  {
+    "name": "PR0 base — no upgrades",
+    "stats": { "ad": 10, "hp": 100, "as": 1, "ms": 1, "gs": 1, "critChance": 0, "critDamage": 2, "blockChance": 0 },
+    "reductions": { "ad": 0, "as": 0, "critChance": 0, "critDamage": 0 },
+    "seed": 10007,
+    "expected": { "lastWave": 2, "deathWave": 3 }
+  },
+  {
+    "name": "Full block — damage fully cancelled",
+    "stats": { "ad": 10, "hp": 1, "as": 1, "ms": 1, "gs": 1, "critChance": 0, "critDamage": 2, "blockChance": 1 },
+    "reductions": { "ad": 0, "as": 0, "critChance": 0, "critDamage": 0 },
+    "seed": 7,
+    "maxWave": 5,
+    "expected": { "lastWave": 5, "deathWave": 6 }
+  },
+  {
+    "name": "Enemy reductions keep damage at one minimum",
+    "stats": { "ad": 10, "hp": 100, "as": 1, "ms": 1, "gs": 1, "critChance": 0, "critDamage": 2, "blockChance": 0 },
+    "reductions": { "ad": 999, "as": 0, "critChance": 0, "critDamage": 0 },
+    "seed": 19,
+    "expectedMonsterWave": 1,
+    "expectedMonsterDamage": 1
+  }
+]

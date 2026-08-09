@@ -530,6 +530,34 @@ addEventListener('DOMContentLoaded',()=>{
   afkButton.addEventListener('click',window.runAfkSimulation)
 });
 </script>
+<style>
+.profile-switcher{display:inline-flex;gap:4px;margin-bottom:10px;padding:4px;border:1px solid var(--line);border-radius:11px;background:#0b1020;box-shadow:0 8px 22px #0004}
+.profile-tab{min-width:86px;padding:7px 13px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:900;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+.profile-tab:hover{color:#fff;background:#17213a}
+.profile-tab.active{border-color:#4f8da7;background:linear-gradient(135deg,#195565,#17433e);color:#a8ffe9;box-shadow:inset 0 0 0 1px #6cf2dc20}
+.profile-tab[data-profile="moom"]{color:#82c8ff}
+.profile-tab[data-profile="moom"]:hover{border-color:#3d7fba;background:#142c49;color:#c9eaff}
+.profile-tab[data-profile="moom"].active{border-color:#58adf0;background:linear-gradient(135deg,#174f80,#173663);color:#e0f3ff;box-shadow:inset 0 0 0 1px #72c4ff30,0 0 18px #238de326}
+.profile-tab[data-profile="frenswa"]{color:#c5a0ff}
+.profile-tab[data-profile="frenswa"]:hover{border-color:#7654ae;background:#291e46;color:#eadcff}
+.profile-tab[data-profile="frenswa"].active{border-color:#9d74e5;background:linear-gradient(135deg,#55308a,#38245f);color:#f1e8ff;box-shadow:inset 0 0 0 1px #c09aff30,0 0 18px #864ad926}
+@media(max-width:450px){.profile-switcher{display:flex;width:100%}.profile-tab{flex:1;min-width:0}}
+</style>
+<script>
+(()=>{
+  const ACTIVE_KEY='obelisk-active-profile',PROFILE_PREFIX='obelisk-profile-',profiles=[['moom','Moom'],['frenswa','Frenswa']];
+  const isProfileStateKey=key=>key.startsWith('obelisk-')&&key!==ACTIVE_KEY&&!key.startsWith(PROFILE_PREFIX)&&!key.includes('cache')&&!key.includes('marginal')&&!key.includes('route-table');
+  const collectState=()=>{const state={};for(let index=0;index<localStorage.length;index++){const key=localStorage.key(index);if(key&&isProfileStateKey(key))state[key]=localStorage.getItem(key)}return state};
+  const defaultState=()=>({'obelisk-simple':JSON.stringify({blue:'0',ad:'10',hp:'100',as:'1',ms:'1',gs:'1',prestige:'0',highestWave:'0',lvlAd:'0',lvlHp:'0',lvlAs:'0',gemAd:'0',gemHp:'0',gemGs:'0'}),'obelisk-t2':'0','obelisk-t3':'0','obelisk-t4':'0','obelisk-gem-double':'0'});
+  const saveProfile=id=>localStorage.setItem(PROFILE_PREFIX+id,JSON.stringify(collectState()));
+  const restoreProfile=id=>{let state;try{state=JSON.parse(localStorage.getItem(PROFILE_PREFIX+id)||'null')}catch{}if(!state){state=defaultState();localStorage.setItem(PROFILE_PREFIX+id,JSON.stringify(state))}const keys=[];for(let index=0;index<localStorage.length;index++){const key=localStorage.key(index);if(key&&isProfileStateKey(key))keys.push(key)}keys.forEach(key=>localStorage.removeItem(key));Object.entries(state).forEach(([key,value])=>localStorage.setItem(key,value));localStorage.setItem(ACTIVE_KEY,id)};
+  let active=localStorage.getItem(ACTIVE_KEY);if(!profiles.some(([id])=>id===active)){active='frenswa';localStorage.setItem(ACTIVE_KEY,active);if(!localStorage.getItem(PROFILE_PREFIX+active))saveProfile(active)}
+  const header=document.querySelector('header');if(!header||document.getElementById('profileSwitcher'))return;
+  const switcher=document.createElement('div');switcher.id='profileSwitcher';switcher.className='profile-switcher';switcher.setAttribute('role','tablist');switcher.setAttribute('aria-label','Player profile');
+  for(const[id,label]of profiles){const button=document.createElement('button');button.type='button';button.className='profile-tab'+(id===active?' active':'');button.textContent=label;button.dataset.profile=id;button.setAttribute('role','tab');button.setAttribute('aria-selected',id===active?'true':'false');button.addEventListener('click',()=>{if(id===active)return;try{window.saveAllStats?.();saveProfile(active);restoreProfile(id);location.reload()}catch(error){console.error('Profile switch failed',error);button.textContent='Retry'}});switcher.append(button)}
+  header.prepend(switcher);addEventListener('beforeunload',()=>{try{saveProfile(localStorage.getItem(ACTIVE_KEY)||active)}catch{}},{capture:true})
+})();
+</script>
 </body></html>
 
 

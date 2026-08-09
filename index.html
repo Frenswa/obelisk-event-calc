@@ -426,10 +426,11 @@ addEventListener('DOMContentLoaded',function(){
     const summary=plan.querySelector('.summary');if(!summary)return;
     const addTitle=(label,kind,detail)=>{const title=document.createElement('div');title.className='purchase-timing-title '+kind;title.innerHTML='<b>'+label+'</b><span class="purchase-title-actions"><span>'+detail+'</span></span>';plan.insertBefore(title,summary);return title};
     const priorityTitle=addTitle('À acheter en priorité','now','améliore le farm'),buyableNow=now.filter(record=>record.row.classList.contains('buyable-now'));
-    if(buyableNow.length){const buyAll=document.createElement('button');buyAll.type='button';buyAll.className='buy-all-priority';buyAll.textContent='Buy all';buyAll.addEventListener('click',()=>{buyAll.disabled=true;buyAll.textContent='Buying…';const requests=buyableNow.map(record=>{const tier=Number(record.row.dataset.buyTier),index=Number(record.row.dataset.buyIndex),target=Number(record.row.dataset.buyTargetLevel),current=shopLevel(tier,index);return{tier,index,count:Number.isFinite(target)?Math.max(0,target-current):Number(record.row.dataset.buyCount)||0}}).filter(request=>request.count>0);if(!requests.length){buyAll.textContent='Already bought ✓';setTimeout(()=>window.runFullSimulation?.(),50);return}const result=window.buyShopBundle?.(requests);if(!result?.ok){buyAll.textContent='Re-simulate';buyAll.disabled=false;return}buyAll.textContent='Bought ✓';setTimeout(()=>window.runFullSimulation?.(),50)});priorityTitle.querySelector('.purchase-title-actions')?.append(buyAll)}
+    if(buyableNow.length){const buyAll=document.createElement('button');buyAll.type='button';buyAll.className='buy-all-priority';buyAll.textContent='Buy all';buyAll.setAttribute('onclick','executePriorityBuyAll(this)');priorityTitle.querySelector('.purchase-title-actions')?.append(buyAll)}
     if(now.length)now.forEach(record=>plan.insertBefore(record.row,summary));else{const empty=document.createElement('div');empty.className='purchase-timing-empty';empty.textContent='Rien pour le moment · garde tes monnaies';plan.insertBefore(empty,summary)}
     if(later.length){addTitle('Acheter juste avant le push','later','package final');later.forEach(record=>plan.insertBefore(record.row,summary))}
   }
+  window.executePriorityBuyAll=function(buyAll){if(!buyAll||buyAll.disabled)return;buyAll.disabled=true;buyAll.textContent='Buying…';const requests=[...document.querySelectorAll('#plan .upgrade.buyable-now')].map(row=>{const tier=Number(row.dataset.buyTier),index=Number(row.dataset.buyIndex),target=Number(row.dataset.buyTargetLevel),current=shopLevel(tier,index);return{tier,index,count:Number.isFinite(target)?Math.max(0,target-current):Number(row.dataset.buyCount)||0}}).filter(request=>request.count>0);if(!requests.length){buyAll.textContent='Already bought ✓';setTimeout(()=>window.runFullSimulation?.(),50);return}const result=window.buyShopBundle?.(requests);if(!result?.ok){buyAll.textContent='Re-simulate';buyAll.disabled=false;return}buyAll.textContent='Bought ✓';setTimeout(()=>window.runFullSimulation?.(),50)};
   const timingEconomyCache=new Map();
   function timingEconomy(stats,mods,horizon,samples=12){
     const key=[horizon,samples,stats.ad,stats.hp,stats.as,stats.ms,stats.gs,stats.critChance,stats.critDamage,stats.blockChance,stats.dropChance,stats.currencyMultiplier||1,mods.ad,mods.as,mods.critChance,mods.critDamage].join('|');
@@ -512,6 +513,7 @@ addEventListener('DOMContentLoaded',()=>{
   function afkEconomy(stats,mods,horizon,samples=8){const original=enemyMods,rewards=[0,0,0,0];let totalTime=0;try{enemyMods=()=>mods;for(let trial=0;trial<samples;trial++){const run=simulateChance(stats,50,68023+trial*7919,horizon),gains=expectedRewardsForWave(run.lastWave,stats);totalTime+=run.time;for(let tier=0;tier<4;tier++)rewards[tier]+=gains[tier]}}finally{enemyMods=original}return{rates:rewards.map(value=>totalTime>0?value/totalTime*60:0),time:totalTime/samples}}
   function afkRuns(spent,balances,gains){let runs=0;for(let tier=0;tier<4;tier++){const missing=Math.max(0,spent[tier]-balances[tier]);if(!missing)continue;if(gains[tier]<=0)return Infinity;runs=Math.max(runs,Math.ceil(missing/gains[tier]))}return runs}
   function renderAfkAnalysis(){
+    const afkButton=document.getElementById('afkButton');if(!afkButton)return;
     document.getElementById('speedAlternative')?.remove();
     const route=window.unifiedRouteChoice;if(!route?.choice){afkButton.textContent='Simulate first';afkButton.disabled=false;return}
     const pr=Math.min(40,Math.max(0,Math.floor(Number(document.getElementById('prestige')?.value)||0))),currentStats=effectiveStats(),currentMods=enemyMods(),current=route.current,horizon=Math.min(250,Math.max(10,current.lastWave+2)),base=afkEconomy(currentStats,currentMods,horizon),levels=Object.fromEntries([1,2,3,4].map(tier=>[tier,DATA.upgrade.tiers[tier].map((_,index)=>shopLevel(tier,index))])),balances=currencyIds.map(id=>Math.max(0,Number(document.getElementById(id)?.value)||0)),remaining=balances.slice(),spent=[0,0,0,0],chosen=new Map;
@@ -529,8 +531,8 @@ addEventListener('DOMContentLoaded',()=>{
     const rows=[...chosen.values()].map(entry=>'<div class="upgrade"><span><b>'+entry.count+'× '+entry.label+'</b></span><strong>'+fmt(entry.cost,0)+' '+tierIcon(entry.tier)+'</strong></div>').join(''),rates=rateDeltas.map((value,index)=>value>.0005?'+'+fmt(value,3)+' '+tierIcon(index+1)+'/min':null).filter(Boolean).join(' · '),gains=nightGains.map((value,index)=>value>.005?'+'+fmt(value,value>=10?0:2)+' '+tierIcon(index+1):null).filter(Boolean).join(' · '),impact=delay>1?'Push retardé de '+timeFmt(delay):delay<-1?'Push accéléré de '+timeFmt(-delay):'Push inchangé',payback=Number.isFinite(paybackMinutes)?timeFmt(paybackMinutes*60):'non remboursé';
     anchor.insertAdjacentHTML('afterend','<div class="plan" id="speedAlternative"><div class="plan-title"><b>AFK · 8 h</b><span style="display:inline-block;padding:3px 8px;border-radius:99px;background:'+badgeBackground+';color:'+badgeColor+';font-size:10px;font-weight:800">'+badgeText+'</span></div>'+rows+'<div class="summary"><div class="summary-row"><span>Gain de rendement</span><b>'+rates+'</b></div><div class="summary-row"><span>Production supplémentaire</span><b>'+gains+'</b></div><div class="summary-row"><span>Amortissement</span><b>'+payback+'</b></div><div class="summary-row"><span>Impact sur le push</span><b>'+impact+'</b></div></div></div>');afkButton.textContent='AFK calculated';afkButton.disabled=false
   }
-  window.runAfkSimulation=function(){if(afkButton.disabled)return;afkButton.disabled=true;afkButton.textContent='Calculating AFK…';setTimeout(()=>{try{renderAfkAnalysis()}catch(error){console.error(error);afkButton.textContent='Retry AFK';afkButton.disabled=false}},20)};
-  afkButton.addEventListener('click',window.runAfkSimulation)
+  window.runAfkSimulation=function(){const currentButton=document.getElementById('afkButton');if(!currentButton||currentButton.disabled)return;currentButton.disabled=true;currentButton.textContent='Calculating AFK…';setTimeout(()=>{try{renderAfkAnalysis()}catch(error){console.error(error);currentButton.textContent='Retry AFK';currentButton.disabled=false}},20)};
+  window.bindAfkButton=function(){const currentButton=document.getElementById('afkButton');if(currentButton)currentButton.onclick=window.runAfkSimulation};window.bindAfkButton()
 });
 </script>
 <style>
@@ -563,21 +565,27 @@ addEventListener('DOMContentLoaded',()=>{
   let active=localStorage.getItem(ACTIVE_KEY);if(!profiles.some(([id])=>id===active)){active='frenswa';localStorage.setItem(ACTIVE_KEY,active);if(!localStorage.getItem(PROFILE_PREFIX+active))saveProfile(active)}
   const header=document.querySelector('header');if(!header||document.getElementById('profileSwitcher'))return;
   const switcher=document.createElement('div');switcher.id='profileSwitcher';switcher.className='profile-switcher';switcher.setAttribute('role','tablist');switcher.setAttribute('aria-label','Player profile');
+  const resultCache=new Map,resultCard=()=>document.getElementById('simulateButton')?.closest('.card');
+  const snapshotResult=profile=>{const card=resultCard();if(card)resultCache.set(profile,{html:card.innerHTML,unifiedRouteChoice:window.unifiedRouteChoice,combinedRouteChoice:window.combinedRouteChoice})};
+  const clearResult=()=>{for(const id of ['runTime','blueMin','rateTier2','rateTier3','rateTier4']){const element=document.getElementById(id);if(element)element.textContent='—'}for(let tier=2;tier<=4;tier++){const card=document.getElementById('rateCard'+tier);if(card)card.style.display='none'}const deathAt=document.getElementById('deathAt'),deathChance=document.getElementById('deathChance'),deathInfo=document.getElementById('deathInfo'),deathOdds=document.getElementById('deathOdds'),plan=document.getElementById('plan'),formula=document.getElementById('formula'),simulation=document.getElementById('simulateButton'),afk=document.getElementById('afkButton');if(deathAt)deathAt.textContent='—';if(deathChance)deathChance.textContent='';if(deathInfo)deathInfo.textContent='No saved simulation for this profile.';if(deathOdds)deathOdds.innerHTML='';if(plan)plan.innerHTML='<div class="empty">Click Simulate to calculate this profile.</div>';if(formula)formula.innerHTML='';document.getElementById('speedAlternative')?.remove();if(simulation){simulation.disabled=false;simulation.textContent='Simulate';simulation.style.background='#183a5b';simulation.style.opacity='1'}if(afk){afk.disabled=false;afk.textContent='Simulate AFK · 8 h'}window.unifiedRouteChoice=null;window.combinedRouteChoice=null};
+  const restoreResult=profile=>{const cached=resultCache.get(profile),card=resultCard();if(!cached||!card){clearResult();return}card.innerHTML=cached.html;window.unifiedRouteChoice=cached.unifiedRouteChoice;window.combinedRouteChoice=cached.combinedRouteChoice;window.bindAfkButton?.()};
+  window.invalidateProfileResult=profile=>resultCache.delete(profile);
   window.applyActiveProfileState=async function(profile,{simulate=true}={}){let simple={};try{simple=JSON.parse(localStorage.getItem('obelisk-simple')||'{}')}catch{};for(const[id,value]of Object.entries(simple))if(document.getElementById(id))document.getElementById(id).value=value;for(const id of ['t2','t3','t4']){const field=document.getElementById(id);if(field)field.value=localStorage.getItem('obelisk-'+id)||'0'}const gemDouble=document.getElementById('gemDouble');if(gemDouble)gemDouble.setAttribute('aria-pressed',localStorage.getItem('obelisk-gem-double')==='1'?'true':'false');renderShopLevels();window.applyShopChain?.();updateGemShopCaps();updateComputedStats();updateEnemySummary();updatePrestigeButton();window.updateCurrencyRates?.();switcher.querySelectorAll('.profile-tab').forEach(tab=>{const selected=tab.dataset.profile===profile;tab.classList.toggle('active',selected);tab.setAttribute('aria-selected',selected?'true':'false')});if(simulate)window.runFullSimulation?.()};
-  const releaseTabsAfterSimulation=()=>{const simulation=document.getElementById('simulateButton');if(simulation?.disabled){setTimeout(releaseTabsAfterSimulation,100);return}switcher.querySelectorAll('.profile-tab').forEach(tab=>tab.disabled=false)};
-  for(const[id,label]of profiles){const button=document.createElement('button');button.type='button';button.className='profile-tab'+(id===active?' active':'');button.textContent=label;button.dataset.profile=id;button.setAttribute('role','tab');button.setAttribute('aria-selected',id===active?'true':'false');button.addEventListener('click',async()=>{if(id===active)return;const simulation=document.getElementById('simulateButton');if(simulation?.disabled){const original=button.textContent;button.textContent='Wait…';setTimeout(()=>button.textContent=original,800);return}switcher.querySelectorAll('.profile-tab').forEach(tab=>tab.disabled=true);try{await window.saveAllStats?.();saveProfile(active);restoreProfile(id);active=id;await window.applyActiveProfileState(id,{simulate:false});await window.loadCloudProfile?.(false,{simulate:false});window.runFullSimulation?.();releaseTabsAfterSimulation()}catch(error){console.error('Profile switch failed',error);button.textContent='Retry';switcher.querySelectorAll('.profile-tab').forEach(tab=>tab.disabled=false)}});switcher.append(button)}
+  for(const[id,label]of profiles){const button=document.createElement('button');button.type='button';button.className='profile-tab'+(id===active?' active':'');button.textContent=label;button.dataset.profile=id;button.setAttribute('role','tab');button.setAttribute('aria-selected',id===active?'true':'false');button.addEventListener('click',async()=>{if(id===active)return;const simulation=document.getElementById('simulateButton');if(simulation?.disabled){const original=button.textContent;button.textContent='Wait…';setTimeout(()=>button.textContent=original,800);return}switcher.querySelectorAll('.profile-tab').forEach(tab=>tab.disabled=true);try{snapshotResult(active);await window.saveAllStats?.();saveProfile(active);restoreProfile(id);active=id;await window.applyActiveProfileState(id,{simulate:false});await window.loadCloudProfile?.(false,{simulate:false});restoreResult(id)}catch(error){console.error('Profile switch failed',error);button.textContent='Retry'}finally{switcher.querySelectorAll('.profile-tab').forEach(tab=>tab.disabled=false)}});switcher.append(button)}
+  const simulationBeforeProfileLock=window.runFullSimulation;window.runFullSimulation=function(){switcher.querySelectorAll('.profile-tab').forEach(tab=>tab.disabled=true);const result=simulationBeforeProfileLock?.apply(this,arguments),release=()=>{if(document.getElementById('simulateButton')?.disabled){setTimeout(release,100);return}switcher.querySelectorAll('.profile-tab').forEach(tab=>tab.disabled=false)};setTimeout(release,0);return result};
   header.prepend(switcher);addEventListener('beforeunload',()=>{try{saveProfile(localStorage.getItem(ACTIVE_KEY)||active)}catch{}},{capture:true})
 })();
 </script>
 <script>
 (()=>{
-  const ACTIVE_KEY='obelisk-active-profile',PROFILE_PREFIX='obelisk-profile-',REVISION_PREFIX='obelisk-profile-cloud-revision-',APPLIED_PREFIX='obelisk-cloud-applied-';
+  const ACTIVE_KEY='obelisk-active-profile',PROFILE_PREFIX='obelisk-profile-',REVISION_PREFIX='obelisk-profile-cloud-revision-',APPLIED_PREFIX='obelisk-cloud-applied-',LOCK_PREFIX='obelisk-cloud-locked-';
   const activeProfile=()=>localStorage.getItem(ACTIVE_KEY)||'frenswa';
   const isProfileStateKey=key=>key.startsWith('obelisk-')&&key!==ACTIVE_KEY&&!key.startsWith(PROFILE_PREFIX)&&!key.includes('cache')&&!key.includes('marginal')&&!key.includes('route-table');
   const collectState=()=>{const state={};for(let index=0;index<localStorage.length;index++){const key=localStorage.key(index);if(key&&isProfileStateKey(key))state[key]=localStorage.getItem(key)}return state};
   const replaceState=(profile,state)=>{const keys=[];for(let index=0;index<localStorage.length;index++){const key=localStorage.key(index);if(key&&isProfileStateKey(key))keys.push(key)}keys.forEach(key=>localStorage.removeItem(key));Object.entries(state||{}).forEach(([key,value])=>{if(isProfileStateKey(key)&&typeof value==='string')localStorage.setItem(key,value)});localStorage.setItem(PROFILE_PREFIX+profile,JSON.stringify(state||{}));localStorage.setItem(ACTIVE_KEY,profile)};
   const revisionOf=profile=>Math.max(0,Math.floor(Number(localStorage.getItem(REVISION_PREFIX+profile))||0));
   const setRevision=(profile,revision)=>localStorage.setItem(REVISION_PREFIX+profile,String(Math.max(0,Math.floor(Number(revision)||0))));
+  const lockKey=profile=>LOCK_PREFIX+profile,isLocked=profile=>sessionStorage.getItem(lockKey(profile))!==null,lockProfile=(profile,revision)=>sessionStorage.setItem(lockKey(profile),String(Math.max(0,Number(revision)||0))),unlockProfile=profile=>sessionStorage.removeItem(lockKey(profile));
   const switcher=document.getElementById('profileSwitcher');if(!switcher)return;
   const cloudButton=document.createElement('button');cloudButton.type='button';cloudButton.className='cloud-sync-button';cloudButton.textContent='Cloud';cloudButton.title='Connect cloud profiles';switcher.append(cloudButton);
   const setStatus=(text,kind='',title='')=>{cloudButton.textContent=text;cloudButton.className='cloud-sync-button'+(kind?' '+kind:'');cloudButton.title=title||text;cloudButton.disabled=kind==='working'};
@@ -603,44 +611,44 @@ addEventListener('DOMContentLoaded',()=>{
       if(result.response.status===401){setStatus('Cloud login','','Click to connect cloud sync');return false}
       if(!result.response.ok){setStatus(result.response.status===503?'Setup needed':'Sync error','error',result.data.error);return false}
       const remoteState=result.data.state||{},remoteRevision=Math.max(0,Number(result.data.revision)||0),localState=collectState();
-      setRevision(profile,remoteRevision);
+      setRevision(profile,remoteRevision);unlockProfile(profile);
       if(remoteRevision===0&&Object.keys(remoteState).length===0){
         const saved=await saveCloudProfile(false);if(saved)setStatus('Synced','online','Saved online');return saved
       }
       if(!statesEqual(localState,remoteState)){
         const appliedKey=APPLIED_PREFIX+profile;
         if(sessionStorage.getItem(appliedKey)!==String(remoteRevision)){
-          replaceState(profile,remoteState);sessionStorage.setItem(appliedKey,String(remoteRevision));await window.applyActiveProfileState?.(profile,{simulate});return true
+          replaceState(profile,remoteState);sessionStorage.setItem(appliedKey,String(remoteRevision));window.invalidateProfileResult?.(profile);await window.applyActiveProfileState?.(profile,{simulate});return true
         }
       }
-      setStatus('Synced','online','Cloud profile up to date');return true
+      setStatus('Synced','online','Verified cloud revision '+remoteRevision);return true
     }catch(error){console.error(error);setStatus('Offline','error','Local data is still available');return false}
   }
 
   async function saveCloudProfile(allowLogin=true){
-    const profile=activeProfile();setStatus('Saving','working');
+    const profile=activeProfile();if(isLocked(profile)){setStatus('Save protected','error','A newer verified cloud save is protected. Click Cloud to load it.');return false}setStatus('Saving','working');
     try{
       let result=await request('/api/profiles/'+profile,{method:'PUT',body:JSON.stringify({state:collectState(),baseRevision:revisionOf(profile)})});
       if(result.response.status===401&&allowLogin&&await login())result=await request('/api/profiles/'+profile,{method:'PUT',body:JSON.stringify({state:collectState(),baseRevision:revisionOf(profile)})});
       if(result.response.status===401){setStatus('Cloud login','','Click to connect cloud sync');return false}
       if(result.response.status===409){
-        setRevision(profile,result.data.revision||0);setStatus('Newer save','error','A newer cloud save exists');
-        if(confirm('A newer cloud save exists. Load it on this device?')){replaceState(profile,result.data.state||{});sessionStorage.setItem(APPLIED_PREFIX+profile,String(result.data.revision||0));await window.applyActiveProfileState?.(profile,{simulate:true})}
+        const protectedRevision=Math.max(0,Number(result.data.revision)||0);lockProfile(profile,protectedRevision);setStatus('Save protected','error','Verified cloud revision '+protectedRevision+' is newer than this tab');
+        if(confirm('A newer verified cloud save exists. This old tab is blocked from overwriting it.\n\nOK: load the protected cloud save\nCancel: keep local changes, but cloud saving stays blocked')){setRevision(profile,protectedRevision);replaceState(profile,result.data.state||{});sessionStorage.setItem(APPLIED_PREFIX+profile,String(protectedRevision));unlockProfile(profile);window.invalidateProfileResult?.(profile);await window.applyActiveProfileState?.(profile,{simulate:true});setStatus('Synced','online','Loaded verified cloud revision '+protectedRevision)}
         return false
       }
       if(!result.response.ok){setStatus(result.response.status===503?'Setup needed':'Save error','error',result.data.error);return false}
-      setRevision(profile,result.data.revision);localStorage.setItem(PROFILE_PREFIX+profile,JSON.stringify(collectState()));setStatus('Synced','online','Saved online');return true
+      setRevision(profile,result.data.revision);unlockProfile(profile);localStorage.setItem(PROFILE_PREFIX+profile,JSON.stringify(collectState()));setStatus('Synced','online','Verified cloud revision '+result.data.revision);return true
     }catch(error){console.error(error);setStatus('Offline','error','Saved locally; cloud unavailable');return false}
   }
 
   const localSave=window.saveAllStats;
-  window.saveAllStats=async function(button){localSave?.(button);const saved=await saveCloudProfile(true);if(button&&saved){button.textContent='✓ Saved Online';button.style.background='#23845f'}};
+  window.saveAllStats=async function(button){localSave?.(button);await new Promise(resolve=>setTimeout(resolve,80));const saved=await saveCloudProfile(true);if(button&&saved){button.textContent='✓ Saved Online';button.style.background='#23845f'}};
   window.loadCloudProfile=loadCloudProfile;window.saveCloudProfile=saveCloudProfile;
   cloudButton.addEventListener('click',()=>loadCloudProfile(true));
   loadCloudProfile(false);
 })();
 </script>
-<div class="app-version" aria-label="Version 0.23.1.0">v0.23.1.0</div>
+<div class="app-version" aria-label="Version 0.23.1.2">v0.23.1.2</div>
 </body></html>
 
 

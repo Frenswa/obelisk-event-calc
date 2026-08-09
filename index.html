@@ -288,6 +288,8 @@ addEventListener('DOMContentLoaded',function(){
 .gem-actions:has(.gem-toggle){grid-template-columns:1fr}
 .gem-toggle[aria-pressed="true"]{border-color:#d75f72;background:#642634;color:#fff0f3;font-size:0}
 .gem-toggle[aria-pressed="true"]:after{content:'−';font-size:20px}
+input[type="number"]{-moz-appearance:textfield;appearance:textfield}
+input[type="number"]::-webkit-inner-spin-button,input[type="number"]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 @media(min-width:1181px){.wrap{width:min(1400px,calc(100% - 32px))}.layout{grid-template-columns:minmax(580px,1fr) minmax(520px,1.05fr)}}
 @media(min-width:781px) and (max-width:1180px){.wrap{width:min(1000px,calc(100% - 24px))}.layout{grid-template-columns:1fr}}
 @media(max-width:450px){.data-card-head{align-items:flex-start}.run-state-fields{gap:6px}.run-state-fields label{gap:3px}.run-state-fields input{width:48px}.run-state-fields button{width:36px}.gem-control{grid-template-columns:minmax(0,1fr) 70px 44px}.gem-effect-name{padding:0 7px;font-size:12px}.main-shop-tab span{display:none}.main-shop-tab{padding:8px}.main-shop-panel{padding:12px}.input-panel-body{padding:12px}.shop-panel-body{padding:0}}
@@ -659,7 +661,8 @@ addEventListener('DOMContentLoaded',()=>{
   loadCloudProfile(false);
 })();
 </script>
-<div class="app-version" aria-label="Version 0.23.1.6">v0.23.1.6</div>
+<script>addEventListener('DOMContentLoaded',()=>{const removeQuickActionsFromTabOrder=()=>document.querySelectorAll('.shop-buy-plus,.gem-step,#highestWavePlus,#prestigePlus').forEach(button=>button.tabIndex=-1);removeQuickActionsFromTabOrder();const shopLevels=document.getElementById('shopLevels');if(shopLevels)new MutationObserver(removeQuickActionsFromTabOrder).observe(shopLevels,{childList:true,subtree:true})})</script>
+<div class="app-version" aria-label="Version 0.23.1.7">v0.23.1.7</div>
 </body></html>
 
 

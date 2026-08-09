@@ -544,6 +544,11 @@ addEventListener('DOMContentLoaded',()=>{
 .profile-tab[data-profile="frenswa"]{color:#c5a0ff}
 .profile-tab[data-profile="frenswa"]:hover{border-color:#7654ae;background:#291e46;color:#eadcff}
 .profile-tab[data-profile="frenswa"].active{border-color:#9d74e5;background:linear-gradient(135deg,#55308a,#38245f);color:#f1e8ff;box-shadow:inset 0 0 0 1px #c09aff30,0 0 18px #864ad926}
+.cloud-sync-button{min-width:82px;padding:7px 11px;border:1px solid #3e485b;border-radius:8px;background:#161d2c;color:#8993a4;font:inherit;font-size:11px;font-weight:900;cursor:pointer}
+.cloud-sync-button:hover{border-color:#68758c;color:#cbd2de}
+.cloud-sync-button.online{border-color:#387b62;background:#14352c;color:#83edc5}
+.cloud-sync-button.working{cursor:wait;opacity:.8}
+.cloud-sync-button.error{border-color:#81505a;background:#351b24;color:#f0a0af}
 .app-version{position:fixed;left:12px;bottom:9px;z-index:20;color:#555b66;font-size:11px;font-weight:800;letter-spacing:.04em;pointer-events:none;user-select:none}
 @media(max-width:450px){.profile-switcher{display:flex;width:100%}.profile-tab{flex:1;min-width:0}}
 </style>
@@ -558,11 +563,81 @@ addEventListener('DOMContentLoaded',()=>{
   let active=localStorage.getItem(ACTIVE_KEY);if(!profiles.some(([id])=>id===active)){active='frenswa';localStorage.setItem(ACTIVE_KEY,active);if(!localStorage.getItem(PROFILE_PREFIX+active))saveProfile(active)}
   const header=document.querySelector('header');if(!header||document.getElementById('profileSwitcher'))return;
   const switcher=document.createElement('div');switcher.id='profileSwitcher';switcher.className='profile-switcher';switcher.setAttribute('role','tablist');switcher.setAttribute('aria-label','Player profile');
-  for(const[id,label]of profiles){const button=document.createElement('button');button.type='button';button.className='profile-tab'+(id===active?' active':'');button.textContent=label;button.dataset.profile=id;button.setAttribute('role','tab');button.setAttribute('aria-selected',id===active?'true':'false');button.addEventListener('click',()=>{if(id===active)return;try{window.saveAllStats?.();saveProfile(active);restoreProfile(id);location.reload()}catch(error){console.error('Profile switch failed',error);button.textContent='Retry'}});switcher.append(button)}
+  for(const[id,label]of profiles){const button=document.createElement('button');button.type='button';button.className='profile-tab'+(id===active?' active':'');button.textContent=label;button.dataset.profile=id;button.setAttribute('role','tab');button.setAttribute('aria-selected',id===active?'true':'false');button.addEventListener('click',async()=>{if(id===active)return;try{await window.saveAllStats?.();saveProfile(active);restoreProfile(id);location.reload()}catch(error){console.error('Profile switch failed',error);button.textContent='Retry'}});switcher.append(button)}
   header.prepend(switcher);addEventListener('beforeunload',()=>{try{saveProfile(localStorage.getItem(ACTIVE_KEY)||active)}catch{}},{capture:true})
 })();
 </script>
-<div class="app-version" aria-label="Version 0.22.0.1">v0.22.0.1</div>
+<script>
+(()=>{
+  const ACTIVE_KEY='obelisk-active-profile',PROFILE_PREFIX='obelisk-profile-',REVISION_PREFIX='obelisk-profile-cloud-revision-',APPLIED_PREFIX='obelisk-cloud-applied-';
+  const activeProfile=()=>localStorage.getItem(ACTIVE_KEY)||'frenswa';
+  const isProfileStateKey=key=>key.startsWith('obelisk-')&&key!==ACTIVE_KEY&&!key.startsWith(PROFILE_PREFIX)&&!key.includes('cache')&&!key.includes('marginal')&&!key.includes('route-table');
+  const collectState=()=>{const state={};for(let index=0;index<localStorage.length;index++){const key=localStorage.key(index);if(key&&isProfileStateKey(key))state[key]=localStorage.getItem(key)}return state};
+  const replaceState=(profile,state)=>{const keys=[];for(let index=0;index<localStorage.length;index++){const key=localStorage.key(index);if(key&&isProfileStateKey(key))keys.push(key)}keys.forEach(key=>localStorage.removeItem(key));Object.entries(state||{}).forEach(([key,value])=>{if(isProfileStateKey(key)&&typeof value==='string')localStorage.setItem(key,value)});localStorage.setItem(PROFILE_PREFIX+profile,JSON.stringify(state||{}));localStorage.setItem(ACTIVE_KEY,profile)};
+  const revisionOf=profile=>Math.max(0,Math.floor(Number(localStorage.getItem(REVISION_PREFIX+profile))||0));
+  const setRevision=(profile,revision)=>localStorage.setItem(REVISION_PREFIX+profile,String(Math.max(0,Math.floor(Number(revision)||0))));
+  const switcher=document.getElementById('profileSwitcher');if(!switcher)return;
+  const cloudButton=document.createElement('button');cloudButton.type='button';cloudButton.className='cloud-sync-button';cloudButton.textContent='Cloud';cloudButton.title='Connect cloud profiles';switcher.append(cloudButton);
+  const setStatus=(text,kind='',title='')=>{cloudButton.textContent=text;cloudButton.className='cloud-sync-button'+(kind?' '+kind:'');cloudButton.title=title||text;cloudButton.disabled=kind==='working'};
+  const statesEqual=(left,right)=>JSON.stringify(left||{})===JSON.stringify(right||{});
+
+  async function request(path,options={}){
+    const response=await fetch(path,{credentials:'same-origin',headers:{'Content-Type':'application/json',...(options.headers||{})},...options});
+    let data={};try{data=await response.json()}catch{}
+    return{response,data}
+  }
+
+  async function login(){
+    const password=prompt('Cloud sync password');if(password===null)return false;
+    setStatus('Signing in','working');
+    try{const{response,data}=await request('/api/login',{method:'POST',body:JSON.stringify({password})});if(!response.ok){setStatus(response.status===503?'Setup needed':'Wrong password','error',data.error);return false}return true}catch(error){console.error(error);setStatus('Offline','error','Cloud unavailable');return false}
+  }
+
+  async function loadCloudProfile(allowLogin=false){
+    const profile=activeProfile();setStatus('Syncing','working');
+    try{
+      let result=await request('/api/profiles/'+profile);
+      if(result.response.status===401&&allowLogin&&await login())result=await request('/api/profiles/'+profile);
+      if(result.response.status===401){setStatus('Cloud login','','Click to connect cloud sync');return false}
+      if(!result.response.ok){setStatus(result.response.status===503?'Setup needed':'Sync error','error',result.data.error);return false}
+      const remoteState=result.data.state||{},remoteRevision=Math.max(0,Number(result.data.revision)||0),localState=collectState();
+      setRevision(profile,remoteRevision);
+      if(remoteRevision===0&&Object.keys(remoteState).length===0){
+        const saved=await saveCloudProfile(false);if(saved)setStatus('Synced','online','Saved online');return saved
+      }
+      if(!statesEqual(localState,remoteState)){
+        const appliedKey=APPLIED_PREFIX+profile;
+        if(sessionStorage.getItem(appliedKey)!==String(remoteRevision)){
+          replaceState(profile,remoteState);sessionStorage.setItem(appliedKey,String(remoteRevision));location.reload();return true
+        }
+      }
+      setStatus('Synced','online','Cloud profile up to date');return true
+    }catch(error){console.error(error);setStatus('Offline','error','Local data is still available');return false}
+  }
+
+  async function saveCloudProfile(allowLogin=true){
+    const profile=activeProfile();setStatus('Saving','working');
+    try{
+      let result=await request('/api/profiles/'+profile,{method:'PUT',body:JSON.stringify({state:collectState(),baseRevision:revisionOf(profile)})});
+      if(result.response.status===401&&allowLogin&&await login())result=await request('/api/profiles/'+profile,{method:'PUT',body:JSON.stringify({state:collectState(),baseRevision:revisionOf(profile)})});
+      if(result.response.status===401){setStatus('Cloud login','','Click to connect cloud sync');return false}
+      if(result.response.status===409){
+        setRevision(profile,result.data.revision||0);setStatus('Newer save','error','A newer cloud save exists');
+        if(confirm('A newer cloud save exists. Load it on this device?')){replaceState(profile,result.data.state||{});sessionStorage.setItem(APPLIED_PREFIX+profile,String(result.data.revision||0));location.reload()}
+        return false
+      }
+      if(!result.response.ok){setStatus(result.response.status===503?'Setup needed':'Save error','error',result.data.error);return false}
+      setRevision(profile,result.data.revision);localStorage.setItem(PROFILE_PREFIX+profile,JSON.stringify(collectState()));setStatus('Synced','online','Saved online');return true
+    }catch(error){console.error(error);setStatus('Offline','error','Saved locally; cloud unavailable');return false}
+  }
+
+  const localSave=window.saveAllStats;
+  window.saveAllStats=async function(button){localSave?.(button);const saved=await saveCloudProfile(true);if(button&&saved){button.textContent='✓ Saved Online';button.style.background='#23845f'}};
+  cloudButton.addEventListener('click',()=>loadCloudProfile(true));
+  loadCloudProfile(false);
+})();
+</script>
+<div class="app-version" aria-label="Version 0.23.0.0">v0.23.0.0</div>
 </body></html>
 
 

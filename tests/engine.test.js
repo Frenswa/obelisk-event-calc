@@ -146,7 +146,7 @@ test('dashboard markup has no duplicate static IDs', () => {
 
 test('displayed application version follows the requested sequence', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /v0\.23\.2\.0/);
+  assert.match(html, /v0\.23\.2\.1/);
 });
 
 test('every precalculated progression step respects shop locks, caps and exact costs', () => {

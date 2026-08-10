@@ -146,7 +146,16 @@ test('dashboard markup has no duplicate static IDs', () => {
 
 test('displayed application version follows the requested sequence', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /v0\.23\.2\.6/);
+  assert.match(html, /v0\.23\.2\.7/);
+});
+
+test('Simulate and Buy all persist locally and online before recalculation', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  assert.match(html, /if\(!options\.skipSave\)await window\.saveAllStats/);
+  assert.match(html, /window\.executePriorityBuyAll=async function/);
+  assert.match(html, /const saved=await window\.saveAllStats/);
+  assert.match(html, /runFullSimulation\?\.\(\{skipSave:true\}\)/);
+  assert.match(html, /return saved/);
 });
 
 test('prestige planning is computed virtually through ordered wave checkpoints', () => {

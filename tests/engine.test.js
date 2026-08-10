@@ -146,7 +146,7 @@ test('dashboard markup has no duplicate static IDs', () => {
 
 test('displayed application version follows the requested sequence', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /v0\.23\.2\.7/);
+  assert.match(html, /v0\.23\.2\.9/);
 });
 
 test('Simulate and Buy all persist locally and online before recalculation', () => {
@@ -166,6 +166,19 @@ test('prestige planning is computed virtually through ordered wave checkpoints',
   assert.match(html, /Checkpoint V/);
   assert.match(html, /route complète/);
   assert.match(html, /return new Promise\(resolve=>setTimeout/);
+});
+
+test('route goal follows the affordable wave horizon until prestige reaches one percent', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  assert.match(html, /prestigeChanceNow>=1/);
+  assert.match(html, /async function findBudgetHorizon/);
+  assert.match(html, /maxRuns:0/);
+  assert.match(html, /next\.runs>maxRuns/);
+  assert.match(html, /affordableThrough\+1/);
+  assert.match(html, /result\.historyOptimized=true/);
+  assert.match(html, /route globale/);
+  assert.match(html, /function unifiedQuality/);
+  assert.match(html, /Math\.max\(0,51-route\.clearQuality\)/);
 });
 
 test('short desktop screens restore page scrolling and lone purchase groups use both columns', () => {

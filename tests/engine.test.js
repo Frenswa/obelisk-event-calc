@@ -146,7 +146,15 @@ test('dashboard markup has no duplicate static IDs', () => {
 
 test('displayed application version follows the requested sequence', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /v0\.23\.3\.2/);
+  assert.match(html, /v0\.23\.3\.3/);
+});
+
+test('route planner helpers are shared with later browser script scopes', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  assert.match(html, /window\.currentLevels=currentLevels/);
+  assert.match(html, /window\.reliableWave=reliableWave/);
+  assert.match(html, /window\.updateRouteProgress=updateRouteProgress/);
+  assert.match(html, /window\.waitForUi=waitForUi/);
 });
 
 test('Simulate and Buy all persist locally and online before recalculation', () => {

@@ -146,7 +146,7 @@ test('dashboard markup has no duplicate static IDs', () => {
 
 test('displayed application version follows the requested sequence', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /v0\.23\.3\.6/);
+  assert.match(html, /v0\.23\.3\.7/);
 });
 
 test('route planner helpers are shared with later browser script scopes', () => {
@@ -161,6 +161,9 @@ test('full purchase plan compares reached and future objectives', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
   assert.match(html, /<small>Objectif atteint<\/small>/);
   assert.match(html, /<small>Futur objectif<\/small>/);
+  assert.match(html, /class="goal-reached"/);
+  assert.match(html, /class="goal-future"/);
+  assert.match(html, /\.goal-future b\{color:#ffd166\}/);
   assert.doesNotMatch(html, /Clears finançables avec tes monnaies/);
   assert.doesNotMatch(html, /Après le plan complet/);
   assert.doesNotMatch(html, /Buy all<\/b> applique seulement/);

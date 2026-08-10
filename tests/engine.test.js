@@ -146,7 +146,7 @@ test('dashboard markup has no duplicate static IDs', () => {
 
 test('displayed application version follows the requested sequence', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /v0\.23\.3\.5/);
+  assert.match(html, /v0\.23\.3\.6/);
 });
 
 test('route planner helpers are shared with later browser script scopes', () => {
@@ -157,12 +157,15 @@ test('route planner helpers are shared with later browser script scopes', () => 
   assert.match(html, /window\.waitForUi=waitForUi/);
 });
 
-test('full purchase plan displays one compact objective', () => {
+test('full purchase plan compares reached and future objectives', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /<small>Objectif<\/small>/);
+  assert.match(html, /<small>Objectif atteint<\/small>/);
+  assert.match(html, /<small>Futur objectif<\/small>/);
+  assert.doesNotMatch(html, /Clears finançables avec tes monnaies/);
   assert.doesNotMatch(html, /Après le plan complet/);
   assert.doesNotMatch(html, /Buy all<\/b> applique seulement/);
   assert.doesNotMatch(html, /Fin la plus probable/);
+  assert.doesNotMatch(html, /~1 %/);
 });
 
 test('Simulate and Buy all persist locally and online before recalculation', () => {
@@ -179,7 +182,7 @@ test('prestige planning is computed virtually through ordered wave checkpoints',
   assert.match(html, /async function findPrestigeJourney/);
   assert.match(html, /for\(let checkpoint=firstTarget;checkpoint<=finalTarget;checkpoint\+\+\)/);
   assert.match(html, /prestigeJourney:true/);
-  assert.match(html, /Checkpoint V/);
+  assert.match(html, /Objectif V/);
   assert.match(html, /route complète/);
   assert.match(html, /return new Promise\(resolve=>setTimeout/);
 });

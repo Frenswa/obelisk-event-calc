@@ -146,7 +146,17 @@ test('dashboard markup has no duplicate static IDs', () => {
 
 test('displayed application version follows the requested sequence', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /v0\.23\.2\.3/);
+  assert.match(html, /v0\.23\.2\.6/);
+});
+
+test('prestige planning is computed virtually through ordered wave checkpoints', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  assert.match(html, /async function findPrestigeJourney/);
+  assert.match(html, /for\(let checkpoint=firstTarget;checkpoint<=finalTarget;checkpoint\+\+\)/);
+  assert.match(html, /prestigeJourney:true/);
+  assert.match(html, /Checkpoint V/);
+  assert.match(html, /route complète/);
+  assert.match(html, /return new Promise\(resolve=>setTimeout/);
 });
 
 test('short desktop screens restore page scrolling and lone purchase groups use both columns', () => {

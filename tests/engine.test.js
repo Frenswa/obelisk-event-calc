@@ -146,7 +146,7 @@ test('dashboard markup has no duplicate static IDs', () => {
 
 test('displayed application version follows the requested sequence', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /v0\.23\.2\.2/);
+  assert.match(html, /v0\.23\.2\.3/);
 });
 
 test('short desktop screens restore page scrolling and lone purchase groups use both columns', () => {
@@ -154,6 +154,8 @@ test('short desktop screens restore page scrolling and lone purchase groups use 
   assert.match(html, /@media\(min-width:1181px\) and \(max-height:900px\)/);
   assert.match(html, /body\.dashboard-mode\{height:auto;min-height:100dvh;overflow-y:auto/);
   assert.match(html, /single-purchase-group/);
+  assert.match(html, /column-count:2/);
+  assert.match(html, /dashboard-results-column/);
 });
 
 test('every precalculated progression step respects shop locks, caps and exact costs', () => {

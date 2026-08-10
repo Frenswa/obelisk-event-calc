@@ -146,7 +146,7 @@ test('dashboard markup has no duplicate static IDs', () => {
 
 test('displayed application version follows the requested sequence', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /v0\.23\.3\.3/);
+  assert.match(html, /v0\.23\.3\.4/);
 });
 
 test('route planner helpers are shared with later browser script scopes', () => {
@@ -155,6 +155,13 @@ test('route planner helpers are shared with later browser script scopes', () => 
   assert.match(html, /window\.reliableWave=reliableWave/);
   assert.match(html, /window\.updateRouteProgress=updateRouteProgress/);
   assert.match(html, /window\.waitForUi=waitForUi/);
+});
+
+test('full purchase plan explains its target and Buy all scope', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  assert.match(html, /Après le plan complet · vert \+ orange/);
+  assert.match(html, /Buy all<\/b> applique seulement les achats verts/);
+  assert.match(html, /Fin la plus probable/);
 });
 
 test('Simulate and Buy all persist locally and online before recalculation', () => {

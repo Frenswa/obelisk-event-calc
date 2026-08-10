@@ -146,7 +146,7 @@ test('dashboard markup has no duplicate static IDs', () => {
 
 test('displayed application version follows the requested sequence', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /v0\.23\.2\.9/);
+  assert.match(html, /v0\.23\.3\.2/);
 });
 
 test('Simulate and Buy all persist locally and online before recalculation', () => {
@@ -172,6 +172,8 @@ test('route goal follows the affordable wave horizon until prestige reaches one 
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
   assert.match(html, /prestigeChanceNow>=1/);
   assert.match(html, /async function findBudgetHorizon/);
+  assert.match(html, /async function findSequentialBudgetPlan/);
+  assert.match(html, /async function finishSequentialBudgetPlan/);
   assert.match(html, /maxRuns:0/);
   assert.match(html, /next\.runs>maxRuns/);
   assert.match(html, /affordableThrough\+1/);
@@ -179,6 +181,10 @@ test('route goal follows the affordable wave horizon until prestige reaches one 
   assert.match(html, /route globale/);
   assert.match(html, /function unifiedQuality/);
   assert.match(html, /Math\.max\(0,51-route\.clearQuality\)/);
+  assert.match(html, /remainingBalances:balances/);
+  assert.match(html, /result\.progressionHistory=budgetHorizon\.stages/);
+  assert.match(html, /Comparaison de la chaîne avec la route globale/);
+  assert.match(html, /route séquentielle optimisée/);
 });
 
 test('short desktop screens restore page scrolling and lone purchase groups use both columns', () => {

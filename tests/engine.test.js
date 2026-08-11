@@ -146,7 +146,7 @@ test('dashboard markup has no duplicate static IDs', () => {
 
 test('displayed application version follows the requested sequence', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /v0\.23\.3\.7/);
+  assert.match(html, /v0\.23\.3\.8/);
 });
 
 test('route planner helpers are shared with later browser script scopes', () => {
@@ -157,18 +157,15 @@ test('route planner helpers are shared with later browser script scopes', () => 
   assert.match(html, /window\.waitForUi=waitForUi/);
 });
 
-test('full purchase plan compares reached and future objectives', () => {
+test('purchase panel only displays currently affordable recommendations', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /<small>Objectif atteint<\/small>/);
-  assert.match(html, /<small>Futur objectif<\/small>/);
-  assert.match(html, /class="goal-reached"/);
-  assert.match(html, /class="goal-future"/);
-  assert.match(html, /\.goal-future b\{color:#ffd166\}/);
-  assert.doesNotMatch(html, /Clears finançables avec tes monnaies/);
-  assert.doesNotMatch(html, /Après le plan complet/);
-  assert.doesNotMatch(html, /Buy all<\/b> applique seulement/);
-  assert.doesNotMatch(html, /Fin la plus probable/);
-  assert.doesNotMatch(html, /~1 %/);
+  assert.match(html, /findUnifiedRoute\(target,\{skipSequential:true\}\)/);
+  assert.match(html, /buyableNow\.forEach\(record=>nowGroup\.append\(record\.row\)\)/);
+  assert.match(html, /Aucun achat utile avec tes monnaies actuelles/);
+  assert.match(html, /summary\.remove\(\)/);
+  assert.doesNotMatch(html, /plan\.innerHTML=.*planGoal/);
+  assert.doesNotMatch(html, /checkpointBadge=/);
+  assert.doesNotMatch(html, /rateImpactBadge\(ratePercent\)/);
 });
 
 test('Simulate and Buy all persist locally and online before recalculation', () => {
@@ -180,33 +177,11 @@ test('Simulate and Buy all persist locally and online before recalculation', () 
   assert.match(html, /return saved/);
 });
 
-test('prestige planning is computed virtually through ordered wave checkpoints', () => {
+test('active planner searches one current-currency purchase route', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /async function findPrestigeJourney/);
-  assert.match(html, /for\(let checkpoint=firstTarget;checkpoint<=finalTarget;checkpoint\+\+\)/);
-  assert.match(html, /prestigeJourney:true/);
-  assert.match(html, /Objectif V/);
-  assert.match(html, /route complète/);
-  assert.match(html, /return new Promise\(resolve=>setTimeout/);
-});
-
-test('route goal follows the affordable wave horizon until prestige reaches one percent', () => {
-  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /prestigeChanceNow>=1/);
-  assert.match(html, /async function findBudgetHorizon/);
-  assert.match(html, /async function findSequentialBudgetPlan/);
-  assert.match(html, /async function finishSequentialBudgetPlan/);
-  assert.match(html, /maxRuns:0/);
-  assert.match(html, /next\.runs>maxRuns/);
-  assert.match(html, /affordableThrough\+1/);
-  assert.match(html, /result\.historyOptimized=true/);
-  assert.match(html, /route globale/);
-  assert.match(html, /function unifiedQuality/);
-  assert.match(html, /Math\.max\(0,51-route\.clearQuality\)/);
-  assert.match(html, /remainingBalances:balances/);
-  assert.match(html, /result\.progressionHistory=budgetHorizon\.stages/);
-  assert.match(html, /Comparaison de la chaîne avec la route globale/);
-  assert.match(html, /route séquentielle optimisée/);
+  assert.match(html, /findUnifiedRoute\(target,\{skipSequential:true\}\)/);
+  assert.match(html, /Recherche des achats utiles/);
+  assert.match(html, /monnaies actuelles/);
 });
 
 test('short desktop screens restore page scrolling and lone purchase groups use both columns', () => {

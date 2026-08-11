@@ -146,7 +146,7 @@ test('dashboard markup has no duplicate static IDs', () => {
 
 test('displayed application version follows the requested sequence', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /v0\.23\.3\.8/);
+  assert.match(html, /v0\.23\.4\.0/);
 });
 
 test('route planner helpers are shared with later browser script scopes', () => {
@@ -160,9 +160,11 @@ test('route planner helpers are shared with later browser script scopes', () => 
 test('purchase panel only displays currently affordable recommendations', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
   assert.match(html, /findUnifiedRoute\(target,\{skipSequential:true\}\)/);
-  assert.match(html, /buyableNow\.forEach\(record=>nowGroup\.append\(record\.row\)\)/);
+  assert.match(html, /displayNow\.forEach\(record=>nowGroup\.append\(record\.row\)\)/);
   assert.match(html, /Aucun achat utile avec tes monnaies actuelles/);
   assert.match(html, /summary\.remove\(\)/);
+  assert.match(html, /a\.entry\.tier-b\.entry\.tier\|\|Number\(afterUnlock\(a\)\)-Number\(afterUnlock\(b\)\)/);
+  assert.match(html, /sort\(\(a,b\)=>Number\(a\.dataset\.buyOrder\)-Number\(b\.dataset\.buyOrder\)\)/);
   assert.doesNotMatch(html, /plan\.innerHTML=.*planGoal/);
   assert.doesNotMatch(html, /checkpointBadge=/);
   assert.doesNotMatch(html, /rateImpactBadge\(ratePercent\)/);
@@ -174,6 +176,8 @@ test('Simulate and Buy all persist locally and online before recalculation', () 
   assert.match(html, /window\.executePriorityBuyAll=async function/);
   assert.match(html, /const saved=await window\.saveAllStats/);
   assert.match(html, /runFullSimulation\?\.\(\{skipSave:true\}\)/);
+  assert.match(html, /buyAll\.textContent='Updating…';await window\.runFullSimulation\?\.\(\)/);
+  assert.doesNotMatch(html, /buyAll\.textContent='Re-simulate'/);
   assert.match(html, /return saved/);
 });
 
@@ -184,12 +188,13 @@ test('active planner searches one current-currency purchase route', () => {
   assert.match(html, /monnaies actuelles/);
 });
 
-test('short desktop screens restore page scrolling and lone purchase groups use both columns', () => {
+test('short desktop screens restore page scrolling and purchases stay on one column', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
   assert.match(html, /@media\(min-width:1181px\) and \(max-height:900px\)/);
   assert.match(html, /body\.dashboard-mode\{height:auto;min-height:100dvh;overflow-y:auto/);
   assert.match(html, /single-purchase-group/);
-  assert.match(html, /column-count:2/);
+  assert.match(html, /single-purchase-group>\.purchase-group\{grid-column:1\/-1;display:block\}/);
+  assert.doesNotMatch(html, /column-count:2/);
   assert.match(html, /dashboard-results-column/);
 });
 

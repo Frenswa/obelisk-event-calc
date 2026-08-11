@@ -146,7 +146,7 @@ test('dashboard markup has no duplicate static IDs', () => {
 
 test('displayed application version follows the requested sequence', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /v0\.23\.4\.0/);
+  assert.match(html, /v0\.23\.4\.2/);
 });
 
 test('route planner helpers are shared with later browser script scopes', () => {
@@ -163,7 +163,8 @@ test('purchase panel only displays currently affordable recommendations', () => 
   assert.match(html, /displayNow\.forEach\(record=>nowGroup\.append\(record\.row\)\)/);
   assert.match(html, /Aucun achat utile avec tes monnaies actuelles/);
   assert.match(html, /summary\.remove\(\)/);
-  assert.match(html, /a\.entry\.tier-b\.entry\.tier\|\|Number\(afterUnlock\(a\)\)-Number\(afterUnlock\(b\)\)/);
+  assert.match(html, /a\.entry\.tier-b\.entry\.tier\|\|displayPhase\(a\)-displayPhase\(b\)\|\|a\.entry\.index-b\.entry\.index/);
+  assert.match(html, /displayPhase=record=>unlockPurchases\.has\(record\)\?1:dependencies\(record\)\.length\?2:0/);
   assert.match(html, /sort\(\(a,b\)=>Number\(a\.dataset\.buyOrder\)-Number\(b\.dataset\.buyOrder\)\)/);
   assert.doesNotMatch(html, /plan\.innerHTML=.*planGoal/);
   assert.doesNotMatch(html, /checkpointBadge=/);
@@ -181,9 +182,11 @@ test('Simulate and Buy all persist locally and online before recalculation', () 
   assert.match(html, /return saved/);
 });
 
-test('active planner searches one current-currency purchase route', () => {
+test('active planner consolidates every affordable current-currency checkpoint', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /findUnifiedRoute\(target,\{skipSequential:true\}\)/);
+  assert.match(html, /findBudgetHorizon\?\.\(target,250\)/);
+  assert.match(html, /sequential\.stagePurchases/);
+  assert.match(html, /horizon\?\.globalThrough>horizon\?\.sequentialThrough/);
   assert.match(html, /Recherche des achats utiles/);
   assert.match(html, /monnaies actuelles/);
 });

@@ -146,7 +146,15 @@ test('dashboard markup has no duplicate static IDs', () => {
 
 test('displayed application version follows the requested sequence', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /v0\.23\.4\.2/);
+  assert.match(html, /v0\.23\.4\.3/);
+});
+
+test('MS and GS are regular route candidates optimized through run time', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  assert.doesNotMatch(html, /isPureSpeedUpgrade/);
+  assert.match(html, /s\.ad,s\.hp,s\.as,s\.ms,s\.gs/);
+  assert.match(html, /useful=status==='simulated'\|\|status==='reward'/);
+  assert.match(html, /a\.runs-b\.runs\|\|a\.sim\.time-b\.sim\.time/);
 });
 
 test('route planner helpers are shared with later browser script scopes', () => {

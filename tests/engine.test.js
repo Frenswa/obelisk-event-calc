@@ -146,7 +146,7 @@ test('dashboard markup has no duplicate static IDs', () => {
 
 test('displayed application version follows the requested sequence', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /v0\.23\.4\.3/);
+  assert.match(html, /v0\.23\.4\.4/);
 });
 
 test('MS and GS are regular route candidates optimized through run time', () => {
@@ -190,13 +190,26 @@ test('Simulate and Buy all persist locally and online before recalculation', () 
   assert.match(html, /return saved/);
 });
 
-test('active planner consolidates every affordable current-currency checkpoint', () => {
+test('active planner skips intermediate checkpoints and searches the current budget directly', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /findBudgetHorizon\?\.\(target,250\)/);
-  assert.match(html, /sequential\.stagePurchases/);
-  assert.match(html, /horizon\?\.globalThrough>horizon\?\.sequentialThrough/);
+  assert.match(html, /findBudgetHorizon\?\.\(target,planningLimit\)/);
+  assert.match(html, /prestigeLimit=pr<40.*prestigeRequiredWave\(pr\):250/);
+  assert.match(html, /Math\.ceil\(\(low\+high\)\/2\)/);
+  assert.match(html, /binarySearch:true/);
+  assert.match(html, /directBudgetSearch:true/);
+  assert.match(html, /sequentialPlan:null/);
+  assert.doesNotMatch(html, /sequential=await findSequentialBudgetPlan\(firstTarget,limit,baseFind\)/);
   assert.match(html, /Recherche des achats utiles/);
   assert.match(html, /monnaies actuelles/);
+});
+
+test('cloud profiles use last-write-wins without stale-tab protection', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const api = fs.readFileSync(path.resolve(__dirname, '..', 'functions', 'api', 'profiles', '[id].js'), 'utf8');
+  assert.doesNotMatch(html, /Save protected|LOCK_PREFIX|APPLIED_PREFIX|isLocked\(/);
+  assert.doesNotMatch(api, /baseRevision|Save conflict|409/);
+  assert.match(api, /ON CONFLICT\(id\) DO UPDATE/);
+  assert.match(api, /revision = profiles\.revision \+ 1/);
 });
 
 test('short desktop screens restore page scrolling and purchases stay on one column', () => {

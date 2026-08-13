@@ -60,50 +60,22 @@ export async function onRequestPut({ request, env, params }) {
     return apiResponse({ error: 'Profile state is too large.' }, 413);
   }
 
-  const baseRevision = Number.isInteger(body.baseRevision) && body.baseRevision >= 0
-    ? body.baseRevision
-    : 0;
-  const existing = await readProfile(env.DB, id);
-
-  if (!existing) {
-    if (baseRevision !== 0) return apiResponse({ error: 'Save conflict.', revision: 0, state: {} }, 409);
-    await env.DB
-      .prepare("INSERT INTO profiles (id, state_json, revision, updated_at) VALUES (?, ?, 1, CURRENT_TIMESTAMP)")
-      .bind(id, stateJson)
-      .run();
-    const created = await readProfile(env.DB, id);
-    return apiResponse({ profile: id, revision: 1, updatedAt: created?.updated_at || null });
-  }
-
-  const currentRevision = Number(existing.revision) || 0;
-  if (baseRevision !== currentRevision) {
-    return apiResponse({
-      error: 'Save conflict.',
-      revision: currentRevision,
-      state: parseState(existing.state_json),
-      updatedAt: existing.updated_at || null
-    }, 409);
-  }
-
-  const result = await env.DB
-    .prepare("UPDATE profiles SET state_json = ?, revision = revision + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND revision = ?")
-    .bind(stateJson, id, currentRevision)
+  await env.DB
+    .prepare(`
+      INSERT INTO profiles (id, state_json, revision, updated_at)
+      VALUES (?, ?, 1, CURRENT_TIMESTAMP)
+      ON CONFLICT(id) DO UPDATE SET
+        state_json = excluded.state_json,
+        revision = profiles.revision + 1,
+        updated_at = CURRENT_TIMESTAMP
+    `)
+    .bind(id, stateJson)
     .run();
-
-  if (!result.success || Number(result.meta?.changes || 0) !== 1) {
-    const latest = await readProfile(env.DB, id);
-    return apiResponse({
-      error: 'Save conflict.',
-      revision: Number(latest?.revision) || 0,
-      state: parseState(latest?.state_json),
-      updatedAt: latest?.updated_at || null
-    }, 409);
-  }
 
   const updated = await readProfile(env.DB, id);
   return apiResponse({
     profile: id,
-    revision: Number(updated?.revision) || currentRevision + 1,
+    revision: Number(updated?.revision) || 1,
     updatedAt: updated?.updated_at || null
   });
 }

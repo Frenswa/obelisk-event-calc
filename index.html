@@ -49,7 +49,7 @@ window.currentLevels=currentLevels;window.reliableWave=reliableWave;window.updat
 const cacheKey=prestigeSprint?null:earlyRouteKey(target,baseStats,baseMods,levels,pr,balances),cachedRoutes=cacheKey?loadEarlyRoutes(cacheKey,gains,balances):[],cachedChoice=chooseRoute(cachedRoutes,currentTime,{prestigeSprint,maxRuns});if(cachedChoice)return{choice:cachedChoice,current:initial.sim,currentStats:baseStats,target,gains:cachedChoice.gains||gains,balances,runTime:currentTime,cacheHit:true,precalculatedReference:precalculated?.seed?precalculated.rank:null,prestigeSprint};
 let frontier=[initial],candidates=precalculated?.seed?[precalculated.seed]:[],reliableCandidates=[],reliableDepth=Infinity;if(precalculated?.seed){updateRouteProgress('Référence PR'+precalculated.rank+' chargée · adaptation à tes niveaux');precalculated.seed.chance=unifiedChance(precalculated.seed.stats,precalculated.seed.mods,target,16);if(precalculated.seed.chance>=ROUTE_SEARCH_GATE){reliableCandidates.push(precalculated.seed);reliableDepth=0}}
 if(prestigeSprint&&!candidates.includes(initial))candidates.push(initial);
-const bestByStats=new Map([[combatSignature(initial),initial]]);if(initial.sim.lastWave>=target||prestigeSprint&&initial.sim.deathWave>=target)candidates.push(initial);let examined=0;for(let depth=0;depth<maxDepth;depth++){const expanded=[];updateRouteProgress('Exploration des achats '+(depth+1)+'/'+maxDepth+' · '+frontier.length+' routes actives');for(const state of frontier){for(const action of availableActions(state,pr)){const next=buyAction(state,action,balances,gains,target);examined++;if(examined%24===0){updateRouteProgress('Exploration des achats '+(depth+1)+'/'+maxDepth+' · '+examined+' routes testées');await waitForUi()}if(!next||next.runs>maxRuns)continue;const statKey=combatSignature(next),statOld=bestByStats.get(statKey);if(!statOld||next.runs<statOld.runs||next.runs===statOld.runs&&resourceBurden(next.spent,next.gains)<resourceBurden(statOld.spent,statOld.gains))bestByStats.set(statKey,next);const sig=routeSignature(next.levels),known=seen.get(sig);if(known!==undefined&&known<=next.runs)continue;seen.set(sig,next.runs);if(next.sim.lastWave>=target||prestigeSprint&&next.sim.deathWave>=target)candidates.push(next);expanded.push(next)}}if(!expanded.length)break;frontier=selectBeam(expanded);const promising=frontier.filter(state=>state.sim.lastWave>=target||prestigeSprint&&state.sim.deathWave>=target).sort((a,b)=>a.runs-b.runs||b.sim.kills-a.sim.kills).slice(0,prestigeSprint?8:3);
+const bestByStats=new Map([[combatSignature(initial),initial]]);if(initial.sim.lastWave>=target||prestigeSprint&&initial.sim.deathWave>=target)candidates.push(initial);let examined=0;for(let depth=0;depth<maxDepth;depth++){const expanded=[];updateRouteProgress('Exploration des achats '+(depth+1)+'/'+maxDepth+' · '+frontier.length+' routes actives');for(const state of frontier){for(const action of availableActions(state,pr)){if(maxRuns===0&&actionCost(action)>Math.max(0,(balances[action.tier-1]||0)-(state.spent[action.tier-1]||0)))continue;const next=buyAction(state,action,balances,gains,target);examined++;if(examined%24===0){updateRouteProgress('Exploration des achats '+(depth+1)+'/'+maxDepth+' · '+examined+' routes testées');await waitForUi()}if(!next||next.runs>maxRuns)continue;const statKey=combatSignature(next),statOld=bestByStats.get(statKey);if(!statOld||next.runs<statOld.runs||next.runs===statOld.runs&&resourceBurden(next.spent,next.gains)<resourceBurden(statOld.spent,statOld.gains))bestByStats.set(statKey,next);const sig=routeSignature(next.levels),known=seen.get(sig);if(known!==undefined&&known<=next.runs)continue;seen.set(sig,next.runs);if(next.sim.lastWave>=target||prestigeSprint&&next.sim.deathWave>=target)candidates.push(next);expanded.push(next)}}if(!expanded.length)break;frontier=selectBeam(expanded);const promising=frontier.filter(state=>state.sim.lastWave>=target||prestigeSprint&&state.sim.deathWave>=target).sort((a,b)=>a.runs-b.runs||b.sim.kills-a.sim.kills).slice(0,prestigeSprint?8:3);
 for(const state of promising){updateRouteProgress('Prévalidation d’une route · profondeur '+state.depth+'/'+maxDepth);state.chance=unifiedChance(state.stats,state.mods,target,16);if(state.chance>=ROUTE_SEARCH_GATE){reliableDepth=Math.min(reliableDepth,state.depth);if(!reliableCandidates.includes(state))reliableCandidates.push(state)}await waitForUi()}
 updateRouteProgress('Exploration des achats '+(depth+1)+'/'+maxDepth+' · '+examined+' routes testées · '+candidates.length+' solutions');await waitForUi();
 if(Number.isFinite(reliableDepth)){const bestReliableRuns=Math.min(...reliableCandidates.map(state=>state.runs)),extraDepth=Math.max(20,Math.min(45,bestReliableRuns*3+12));if(depth>=reliableDepth+extraDepth)break}}
@@ -64,7 +64,7 @@ async function renderUnifiedRoute(){
   const plan=document.getElementById('plan');routeStartedAt=performance.now();plan.innerHTML='<div class="plan-title"><b>Recherche de la prochaine progression</b><span class="tag">calcul en cours</span></div><div class="empty" id="routeProgress">Analyse de tes monnaies et de ta run…</div>';await waitForUi();updateRouteProgress('Analyse de la run actuelle');
   const stats=effectiveStats(),current=simulate(stats,250);let target=Math.min(250,reliableWave(stats,current)+1),result=null;
   plan.innerHTML='<div class="plan-title"><b>Recherche des achats utiles</b><span class="tag">monnaies actuelles</span></div><div class="empty" id="routeProgress">Analyse de tout ton budget…</div>';await waitForUi();
-  const horizon=await window.findBudgetHorizon?.(target,250),sequential=horizon?.sequentialPlan;
+  const pr=Math.min(40,Math.max(0,Math.floor(Number(document.getElementById('prestige')?.value)||0))),prestigeLimit=pr<40&&typeof prestigeRequiredWave==='function'?prestigeRequiredWave(pr):250,planningLimit=Math.min(250,Math.max(target,prestigeLimit)),horizon=await window.findBudgetHorizon?.(target,planningLimit),sequential=horizon?.sequentialPlan;
   if(sequential?.stagePurchases?.length&&horizon.sequentialThrough>=target){const bought=new Map;for(const entry of sequential.stagePurchases){const key=entry.tier+'-'+entry.index,previous=bought.get(key)||{tier:entry.tier,index:entry.index,count:0,cost:0,displayStartLevel:entry.displayStartLevel};bought.set(key,{...previous,count:previous.count+entry.count,cost:previous.cost+entry.cost})}target=horizon.sequentialThrough;result={choice:{...sequential.continuationStart,bought,spent:sequential.totalSpent.slice(),runs:0},balances:sequential.initialBalances.slice(),current:sequential.current,currentStats:sequential.baseStats,target,gains:sequential.gains,runTime:sequential.current.time,budgetHorizon:true}}
   if(horizon?.globalThrough>horizon?.sequentialThrough&&horizon.best?.choice){result=horizon.best;target=horizon.globalThrough}
   if(!result)result=await findUnifiedRoute(target,{skipSequential:true});
@@ -505,14 +505,13 @@ if(rows.length!==ordered.length)return;
     return{...result,choice:best,gains:best.gains||result.gains,cacheHit:false,prestigeSlackOptimized:best!==root}
   }
   async function findBudgetHorizon(firstTarget,finalTarget,baseFind){
-    const start=Math.max(1,Math.floor(firstTarget)),limit=Math.min(250,Math.max(start,Math.floor(finalTarget||250)));let affordableThrough=start-1,best=null,probes=0;
-    for(let target=start;target<=limit;target++){
-      updateRouteProgress('Vérification des monnaies actuelles · V'+target);await waitForUi();
+    const start=Math.max(1,Math.floor(firstTarget)),limit=Math.min(250,Math.max(start,Math.floor(finalTarget||250)));let affordableThrough=start-1,best=null,probes=0,low=start,high=limit;
+    while(low<=high){
+      const target=Math.ceil((low+high)/2);updateRouteProgress('Recherche rapide du palier accessible · V'+target);await waitForUi();
       const result=await baseFind(target,{maxRuns:0,skipSequential:true,budgetProbe:true});probes++;
-      if(!result?.choice||result.choice.runs>0)break;
-      affordableThrough=target;best=result;
+      if(result?.choice&&result.choice.runs===0){affordableThrough=target;best=result;low=target+1}else high=target-1
     }
-    return{firstTarget:start,affordableThrough,best,probes,reachedLimit:affordableThrough>=limit}
+    return{firstTarget:start,affordableThrough,best,probes,reachedLimit:affordableThrough>=limit,binarySearch:true}
   }
   async function findSequentialBudgetPlan(firstTarget,finalTarget,baseFind){
     const first=Math.max(1,Math.floor(firstTarget)),limit=Math.min(250,Math.max(first,Math.floor(finalTarget||250))),stats=effectiveStats(),mods=enemyMods(),levels=currentLevels(),initialBalances=['blue','t2','t3','t4'].map(id=>Math.max(0,Number(document.getElementById(id)?.value)||0)),current=simulate(stats,250),stages=[],stagePurchases=[],totalSpent=[0,0,0,0];
@@ -542,7 +541,7 @@ if(rows.length!==ordered.length)return;
     if(!lastChoice)return null;const chance=Math.max(1,lastChoice.chance||1),combinedChoice={...lastChoice,spent:totalSpent,runs:totalRuns,bought:allBought,depth:totalDepth,gains:gains.slice(),totalFarmTime,expectedTime:totalFarmTime+(lastChoice.sim?.time||runTime)/(chance/100),prestigeSprint:true,prestigeJourney:true,prestigeBaseChance:unifiedChance(baseStats,baseMods,finalTarget,100),prestigePackagesTested:checkpoints.length,checkpoints};return{choice:combinedChoice,current,currentStats:baseStats,target:finalTarget,gains:gains.slice(),balances:initialBalances,runTime:initialRunTime,cacheHit:false,precalculatedReference:window.precalculatedReferenceFor?.(Math.min(40,Math.max(0,Math.floor(Number(document.getElementById('prestige')?.value)||0))),finalTarget)?.rank??null,prestigeSprint:true,prestigeJourney:true}
   }
   addEventListener('DOMContentLoaded',()=>{
-    const baseFind=window.findUnifiedRoute;window.finishSequentialBudgetPlan=function(plan,target){return finishSequentialBudgetPlan(plan,target,baseFind)};window.findBudgetHorizon=async function(firstTarget,finalTarget){const limit=Math.min(250,Math.max(firstTarget,Math.floor(finalTarget||250))),sequential=await findSequentialBudgetPlan(firstTarget,limit,baseFind),globalStart=Math.max(firstTarget,sequential.affordableThrough+1),global=globalStart<=limit?await findBudgetHorizon(globalStart,limit,baseFind):{affordableThrough:sequential.affordableThrough,probes:0,reachedLimit:true},affordableThrough=Math.max(sequential.affordableThrough,global.affordableThrough);return{...global,affordableThrough,reachedLimit:affordableThrough>=limit,sequentialThrough:sequential.affordableThrough,globalThrough:global.affordableThrough,stages:sequential.stages,remainingBalances:sequential.remainingBalances,sequentialPlan:sequential,historyCompared:true}};if(typeof baseFind==='function')window.findUnifiedRoute=async function(target,options={}){if(options.prestigeSprint&&!options.start&&!options.skipSequential){try{return await findPrestigeJourney(target,baseFind)}catch(error){console.warn('Prestige checkpoint route skipped',error)}}const result=await baseFind(target,options);if(!result||options.start||options.skipSequential)return result;try{return options.prestigeSprint?await refinePrestigeSprintRoute(target,result):await refineSequentialRoute(target,result,baseFind)}catch(error){console.warn(options.prestigeSprint?'Prestige route refinement skipped':'Sequential route refinement skipped',error);return result}};
+    const baseFind=window.findUnifiedRoute;window.finishSequentialBudgetPlan=function(plan,target){return finishSequentialBudgetPlan(plan,target,baseFind)};window.findBudgetHorizon=async function(firstTarget,finalTarget){const limit=Math.min(250,Math.max(firstTarget,Math.floor(finalTarget||250))),global=await findBudgetHorizon(firstTarget,limit,baseFind);return{...global,sequentialThrough:firstTarget-1,globalThrough:global.affordableThrough,sequentialPlan:null,historyCompared:false,directBudgetSearch:true}};if(typeof baseFind==='function')window.findUnifiedRoute=async function(target,options={}){if(options.prestigeSprint&&!options.start&&!options.skipSequential){try{return await findPrestigeJourney(target,baseFind)}catch(error){console.warn('Prestige checkpoint route skipped',error)}}const result=await baseFind(target,options);if(!result||options.start||options.skipSequential)return result;try{return options.prestigeSprint?await refinePrestigeSprintRoute(target,result):await refineSequentialRoute(target,result,baseFind)}catch(error){console.warn(options.prestigeSprint?'Prestige route refinement skipped':'Sequential route refinement skipped',error);return result}};
     const routeBeforePurchaseTiming=window.renderUnifiedRoute;if(typeof routeBeforePurchaseTiming==='function')window.renderUnifiedRoute=async function(){const result=await routeBeforePurchaseTiming.apply(this,arguments);splitPushPurchases();return result}
     const absenceBeforeSequential=window.renderAbsence;if(typeof absenceBeforeSequential==='function')window.renderAbsence=function(){const route=window.unifiedRouteChoice,original=route?.choice?.bought;if(!original)return absenceBeforeSequential.apply(this,arguments);const expanded=new Map(original);for(const key of ['1-3','1-4']){const[tier,index]=key.split('-').map(Number),entries=[...original.values()].filter(entry=>entry.tier===tier&&entry.index===index);if(entries.length)expanded.set(key,{tier,index,count:entries.reduce((sum,entry)=>sum+entry.count,0),cost:entries.reduce((sum,entry)=>sum+entry.cost,0)})}route.choice.bought=expanded;try{return absenceBeforeSequential.apply(this,arguments)}finally{route.choice.bought=original}}
   });
@@ -636,14 +635,13 @@ addEventListener('DOMContentLoaded',()=>{
 </script>
 <script>
 (()=>{
-  const ACTIVE_KEY='obelisk-active-profile',PROFILE_PREFIX='obelisk-profile-',REVISION_PREFIX='obelisk-profile-cloud-revision-',APPLIED_PREFIX='obelisk-cloud-applied-',LOCK_PREFIX='obelisk-cloud-locked-';
+  const ACTIVE_KEY='obelisk-active-profile',PROFILE_PREFIX='obelisk-profile-',REVISION_PREFIX='obelisk-profile-cloud-revision-';
   const activeProfile=()=>localStorage.getItem(ACTIVE_KEY)||'frenswa';
   const isProfileStateKey=key=>key.startsWith('obelisk-')&&key!==ACTIVE_KEY&&!key.startsWith(PROFILE_PREFIX)&&!key.includes('cache')&&!key.includes('marginal')&&!key.includes('route-table');
   const collectState=()=>{const state={};for(let index=0;index<localStorage.length;index++){const key=localStorage.key(index);if(key&&isProfileStateKey(key))state[key]=localStorage.getItem(key)}return state};
   const replaceState=(profile,state)=>{const keys=[];for(let index=0;index<localStorage.length;index++){const key=localStorage.key(index);if(key&&isProfileStateKey(key))keys.push(key)}keys.forEach(key=>localStorage.removeItem(key));Object.entries(state||{}).forEach(([key,value])=>{if(isProfileStateKey(key)&&typeof value==='string')localStorage.setItem(key,value)});localStorage.setItem(PROFILE_PREFIX+profile,JSON.stringify(state||{}));localStorage.setItem(ACTIVE_KEY,profile)};
   const revisionOf=profile=>Math.max(0,Math.floor(Number(localStorage.getItem(REVISION_PREFIX+profile))||0));
   const setRevision=(profile,revision)=>localStorage.setItem(REVISION_PREFIX+profile,String(Math.max(0,Math.floor(Number(revision)||0))));
-  const lockKey=profile=>LOCK_PREFIX+profile,isLocked=profile=>sessionStorage.getItem(lockKey(profile))!==null,lockProfile=(profile,revision)=>sessionStorage.setItem(lockKey(profile),String(Math.max(0,Number(revision)||0))),unlockProfile=profile=>sessionStorage.removeItem(lockKey(profile));
   const switcher=document.getElementById('profileSwitcher');if(!switcher)return;
   const cloudButton=document.createElement('button');cloudButton.type='button';cloudButton.className='cloud-sync-button';cloudButton.textContent='Cloud';cloudButton.title='Connect cloud profiles';switcher.append(cloudButton);
   const setStatus=(text,kind='',title='')=>{cloudButton.textContent=text;cloudButton.className='cloud-sync-button'+(kind?' '+kind:'');cloudButton.title=title||text;cloudButton.disabled=kind==='working'};
@@ -669,33 +667,23 @@ addEventListener('DOMContentLoaded',()=>{
       if(result.response.status===401){setStatus('Cloud login','','Click to connect cloud sync');return false}
       if(!result.response.ok){setStatus(result.response.status===503?'Setup needed':'Sync error','error',result.data.error);return false}
       const remoteState=result.data.state||{},remoteRevision=Math.max(0,Number(result.data.revision)||0),localState=collectState();
-      setRevision(profile,remoteRevision);unlockProfile(profile);
+      setRevision(profile,remoteRevision);
       if(remoteRevision===0&&Object.keys(remoteState).length===0){
         const saved=await saveCloudProfile(false);if(saved)setStatus('Synced','online','Saved online');return saved
       }
-      if(!statesEqual(localState,remoteState)){
-        const appliedKey=APPLIED_PREFIX+profile;
-        if(sessionStorage.getItem(appliedKey)!==String(remoteRevision)){
-          replaceState(profile,remoteState);sessionStorage.setItem(appliedKey,String(remoteRevision));window.invalidateProfileResult?.(profile);await window.applyActiveProfileState?.(profile,{simulate});if(!simulate)window.clearActiveProfileResult?.();return true
-        }
-      }
+      if(!statesEqual(localState,remoteState)){replaceState(profile,remoteState);window.invalidateProfileResult?.(profile);await window.applyActiveProfileState?.(profile,{simulate});if(!simulate)window.clearActiveProfileResult?.();return true}
       setStatus('Synced','online','Verified cloud revision '+remoteRevision);return true
     }catch(error){console.error(error);setStatus('Offline','error','Local data is still available');return false}
   }
 
   async function saveCloudProfile(allowLogin=true){
-    const profile=activeProfile();if(isLocked(profile)){setStatus('Save protected','error','A newer verified cloud save is protected. Click Cloud to load it.');return false}setStatus('Saving','working');
+    const profile=activeProfile();setStatus('Saving','working');
     try{
-      let result=await request('/api/profiles/'+profile,{method:'PUT',body:JSON.stringify({state:collectState(),baseRevision:revisionOf(profile)})});
-      if(result.response.status===401&&allowLogin&&await login())result=await request('/api/profiles/'+profile,{method:'PUT',body:JSON.stringify({state:collectState(),baseRevision:revisionOf(profile)})});
+      let result=await request('/api/profiles/'+profile,{method:'PUT',body:JSON.stringify({state:collectState()})});
+      if(result.response.status===401&&allowLogin&&await login())result=await request('/api/profiles/'+profile,{method:'PUT',body:JSON.stringify({state:collectState()})});
       if(result.response.status===401){setStatus('Cloud login','','Click to connect cloud sync');return false}
-      if(result.response.status===409){
-        const protectedRevision=Math.max(0,Number(result.data.revision)||0);lockProfile(profile,protectedRevision);setStatus('Save protected','error','Verified cloud revision '+protectedRevision+' is newer than this tab');
-        if(confirm('A newer verified cloud save exists. This old tab is blocked from overwriting it.\n\nOK: load the protected cloud save\nCancel: keep local changes, but cloud saving stays blocked')){setRevision(profile,protectedRevision);replaceState(profile,result.data.state||{});sessionStorage.setItem(APPLIED_PREFIX+profile,String(protectedRevision));unlockProfile(profile);window.invalidateProfileResult?.(profile);await window.applyActiveProfileState?.(profile,{simulate:false});window.clearActiveProfileResult?.();setStatus('Synced','online','Loaded verified cloud revision '+protectedRevision)}
-        return false
-      }
       if(!result.response.ok){setStatus(result.response.status===503?'Setup needed':'Save error','error',result.data.error);return false}
-      setRevision(profile,result.data.revision);unlockProfile(profile);localStorage.setItem(PROFILE_PREFIX+profile,JSON.stringify(collectState()));setStatus('Synced','online','Verified cloud revision '+result.data.revision);return true
+      setRevision(profile,result.data.revision);localStorage.setItem(PROFILE_PREFIX+profile,JSON.stringify(collectState()));setStatus('Synced','online','Saved online · revision '+result.data.revision);return true
     }catch(error){console.error(error);setStatus('Offline','error','Saved locally; cloud unavailable');return false}
   }
 
@@ -803,7 +791,7 @@ addEventListener('DOMContentLoaded',function(){
 </script>
 <script>addEventListener('DOMContentLoaded',function(){var button=document.getElementById('afkButton');if(!button)return;var normalize=function(){if(!button.disabled&&button.textContent!=='AFK')button.textContent='AFK'};new MutationObserver(function(){setTimeout(normalize,0)}).observe(button,{childList:true,characterData:true,subtree:true});document.addEventListener('input',function(){setTimeout(normalize,0)})})</script>
 <script>addEventListener('DOMContentLoaded',()=>{const removeQuickActionsFromTabOrder=()=>document.querySelectorAll('.shop-buy-plus,.gem-step,#highestWavePlus,#prestigePlus').forEach(button=>button.tabIndex=-1);removeQuickActionsFromTabOrder();const shopLevels=document.getElementById('shopLevels');if(shopLevels)new MutationObserver(removeQuickActionsFromTabOrder).observe(shopLevels,{childList:true,subtree:true})})</script>
-<div class="app-version" aria-label="Version 0.23.4.3">v0.23.4.3</div>
+<div class="app-version" aria-label="Version 0.23.4.4">v0.23.4.4</div>
 </body></html>
 
 

@@ -407,6 +407,7 @@ input[type="number"]::-webkit-inner-spin-button,input[type="number"]::-webkit-ou
 .purchase-group.later{border-color:#c98a42;box-shadow:0 0 0 2px #c98a4216}
 .purchase-group .upgrade:last-child{border-bottom:0}.purchase-group-actions{display:flex;justify-content:flex-end;padding:7px 9px;border-bottom:1px dashed #344263;background:#10172a}
 .purchase-timing-empty{padding:10px 13px;color:#94a2c2;font-size:11px;background:#0c1222}
+.push-ready-eta{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 13px;border-top:1px dashed #315748;background:#10211d;color:#a7b8d6;font-size:11px}.push-ready-eta b{color:#8ff3c5;font-size:12px}.push-ready-eta small{display:block;margin-top:2px;color:#7385a7;font-size:9px}
 .purchase-group.now .upgrade.buyable-now{background:#10251f;box-shadow:none}
 .upgrade.buyable-now>span{font-weight:950;color:#effff8}
 .upgrade.unlock-purchase>span{font-style:italic}
@@ -436,7 +437,7 @@ input[type="number"]::-webkit-inner-spin-button,input[type="number"]::-webkit-ou
     const plan=document.getElementById('plan'),route=window.unifiedRouteChoice;
     if(!plan||!route?.choice?.bought)return;
     const ordered=[...route.choice.bought.values()],rows=[...plan.children].filter(el=>el.classList.contains('upgrade')&&el.querySelector('strong'));
-if(!ordered.length){plan.innerHTML='<div class="empty">Aucun achat utile avec tes monnaies actuelles.</div>';return}
+	if(!ordered.length){plan.innerHTML='<div class="empty">Aucun achat utile avec tes monnaies actuelles.</div>';appendPushEta(plan,route);return}
 if(rows.length!==ordered.length)return;
     const records=ordered.map((entry,index)=>({entry,row:rows[index]})),capIndexes={1:7,2:5,3:5,4:5},findRecord=(tier,index)=>records.find(record=>record.entry.tier===tier&&record.entry.index===index),startLevel=record=>Number.isFinite(record.entry.displayStartLevel)?record.entry.displayStartLevel:shopLevel(record.entry.tier,record.entry.index),dependencies=record=>{const entry=record.entry,deps=[];if(entry.index>0&&shopLevel(entry.tier,entry.index-1)<1){const previous=findRecord(entry.tier,entry.index-1);if(previous)deps.push(previous)}const capIndex=capIndexes[entry.tier],needsCap=startLevel(record)+entry.count>currentShopCap(entry.tier,entry.index);if(needsCap){const capDependency=entry.index===capIndex?findRecord(4,6):findRecord(entry.tier,capIndex);if(capDependency&&capDependency!==record)deps.push(capDependency)}return[...new Set(deps)]};
     const unlockPurchases=new Set;records.forEach(record=>dependencies(record).forEach(dependency=>unlockPurchases.add(dependency)));const visited=new Set,now=[];const append=record=>{if(visited.has(record))return;visited.add(record);dependencies(record).forEach(append);now.push(record)};records.forEach(append);const executionOrder=new Map(now.map((record,index)=>[record,index])),displayPhase=record=>unlockPurchases.has(record)?1:dependencies(record).length?2:0;
@@ -446,9 +447,10 @@ if(rows.length!==ordered.length)return;
     const summary=plan.querySelector('.summary');if(!summary)return;plan.querySelector(':scope > .plan-title')?.remove();plan.querySelector('.plan-goal')?.remove();const nowGroup=document.createElement('div');nowGroup.className='purchase-group now';plan.insertBefore(nowGroup,summary);const buyableNow=now.filter(record=>record.row.classList.contains('buyable-now'));
     if(buyableNow.length){const actions=document.createElement('div');actions.className='purchase-group-actions';const buyAll=document.createElement('button');buyAll.type='button';buyAll.className='buy-all-priority';buyAll.disabled=Boolean(window.priorityBuyAllRunning);buyAll.textContent=window.priorityBuyAllRunning?'Buying…':'Buy all';buyAll.setAttribute('onclick','executePriorityBuyAll(this)');actions.append(buyAll);nowGroup.append(actions)}
     const displayNow=[...buyableNow].sort((a,b)=>a.entry.tier-b.entry.tier||displayPhase(a)-displayPhase(b)||a.entry.index-b.entry.index||executionOrder.get(a)-executionOrder.get(b));
-    if(displayNow.length)displayNow.forEach(record=>nowGroup.append(record.row));else{const empty=document.createElement('div');empty.className='purchase-timing-empty';empty.textContent='Aucun achat utile avec tes monnaies actuelles.';nowGroup.append(empty)}
-    records.filter(record=>!record.row.classList.contains('buyable-now')).forEach(record=>record.row.remove());summary.remove()
-  }
+	    if(displayNow.length)displayNow.forEach(record=>nowGroup.append(record.row));else{const empty=document.createElement('div');empty.className='purchase-timing-empty';empty.textContent='Aucun achat utile avec tes monnaies actuelles.';nowGroup.append(empty)}appendPushEta(nowGroup,route);
+	    records.filter(record=>!record.row.classList.contains('buyable-now')).forEach(record=>record.row.remove());summary.remove()
+	  }
+	  function appendPushEta(container,route){const runs=Math.max(0,Math.ceil(Number(route?.choice?.runs)||0));if(!container||!runs)return;const runTime=Math.max(.001,Number(route?.runTime)||Number(route?.current?.time)||0),seconds=runs*runTime,target=Math.max(1,Math.floor(Number(route?.target)||1)),eta=document.createElement('div');eta.className='push-ready-eta';eta.innerHTML='<span>Prêt à tenter V'+target+'<small>Estimation selon ton rendement actuel</small></span><b>≈ '+runs+' run'+(runs>1?'s':'')+' · '+timeFmt(seconds)+'</b>';container.append(eta)}
   function priorityBuyRequests(){return[...document.querySelectorAll('#plan .upgrade.buyable-now')].sort((a,b)=>Number(a.dataset.buyOrder)-Number(b.dataset.buyOrder)).map(row=>{const tier=Number(row.dataset.buyTier),index=Number(row.dataset.buyIndex),target=Number(row.dataset.buyTargetLevel),current=shopLevel(tier,index);return{tier,index,count:Number.isFinite(target)?Math.max(0,target-current):Number(row.dataset.buyCount)||0}}).filter(request=>request.count>0)}
   window.executePriorityBuyAll=async function(buyAll){if(!buyAll||buyAll.disabled)return;buyAll.disabled=true;buyAll.textContent='Buying…';const requests=priorityBuyRequests();if(!requests.length){buyAll.textContent='Already bought ✓';setTimeout(()=>window.runFullSimulation?.(),50);return}const result=window.buyShopBundle?.(requests);if(!result?.ok){buyAll.textContent='Updating…';await window.runFullSimulation?.();return}buyAll.textContent='Saving…';const saved=await window.saveAllStats?.();buyAll.textContent=saved===false?'Bought locally · Cloud not saved':'Bought & saved ✓';setTimeout(()=>window.runFullSimulation?.({skipSave:true}),50)};
   const timingEconomyCache=new Map();
@@ -791,7 +793,7 @@ addEventListener('DOMContentLoaded',function(){
 </script>
 <script>addEventListener('DOMContentLoaded',function(){var button=document.getElementById('afkButton');if(!button)return;var normalize=function(){if(!button.disabled&&button.textContent!=='AFK')button.textContent='AFK'};new MutationObserver(function(){setTimeout(normalize,0)}).observe(button,{childList:true,characterData:true,subtree:true});document.addEventListener('input',function(){setTimeout(normalize,0)})})</script>
 <script>addEventListener('DOMContentLoaded',()=>{const removeQuickActionsFromTabOrder=()=>document.querySelectorAll('.shop-buy-plus,.gem-step,#highestWavePlus,#prestigePlus').forEach(button=>button.tabIndex=-1);removeQuickActionsFromTabOrder();const shopLevels=document.getElementById('shopLevels');if(shopLevels)new MutationObserver(removeQuickActionsFromTabOrder).observe(shopLevels,{childList:true,subtree:true})})</script>
-<div class="app-version" aria-label="Version 0.23.4.4">v0.23.4.4</div>
+<div class="app-version" aria-label="Version 0.23.4.5">v0.23.4.5</div>
 </body></html>
 
 

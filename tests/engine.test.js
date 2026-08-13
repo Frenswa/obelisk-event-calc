@@ -146,7 +146,7 @@ test('dashboard markup has no duplicate static IDs', () => {
 
 test('displayed application version follows the requested sequence', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /v0\.23\.4\.4/);
+  assert.match(html, /v0\.23\.4\.5/);
 });
 
 test('MS and GS are regular route candidates optimized through run time', () => {
@@ -177,6 +177,9 @@ test('purchase panel only displays currently affordable recommendations', () => 
   assert.doesNotMatch(html, /plan\.innerHTML=.*planGoal/);
   assert.doesNotMatch(html, /checkpointBadge=/);
   assert.doesNotMatch(html, /rateImpactBadge\(ratePercent\)/);
+  assert.match(html, /appendPushEta\(nowGroup,route\)/);
+  assert.match(html, /Prêt à tenter V/);
+  assert.match(html, /runs\*runTime/);
 });
 
 test('Simulate and Buy all persist locally and online before recalculation', () => {

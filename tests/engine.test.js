@@ -146,7 +146,7 @@ test('dashboard markup has no duplicate static IDs', () => {
 
 test('displayed application version follows the requested sequence', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /v0\.23\.4\.8/);
+  assert.match(html, /v0\.23\.4\.9/);
 });
 
 test('route planner rejects redundant standalone damage during a one-shot horizon', () => {
@@ -207,6 +207,17 @@ test('final route choice uses currency per minute only inside a near-equal ETA b
   assert.match(html, /bestOptimizationTime=Math\.min\(\.\.\.valid\.map\(route=>route\.optimizationTime\)\)/);
   assert.match(html, /a\.optimizationTime<=bestOptimizationTime\+etaTolerance/);
   assert.match(html, /chooseRoute\(evaluatedCandidates,currentTime,\{prestigeSprint,maxRuns,baseRates\}\)/);
+});
+
+test('simulation renders an expandable explanation for the selected route', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  assert.match(html, /function routePurchaseExplanation\(entry,result\)/);
+  assert.match(html, /function routeChoiceDetailsHtml\(result,purchases\)/);
+  assert.match(html, /Pourquoi ces achats \?/);
+  assert.match(html, /AD[^<]*sans valeur sur cet horizon|sans valeur sur cet horizon/);
+  assert.match(html, /Le calcul choisit la route complète, pas chaque ligne isolément/);
+  assert.match(html, /Les routes finales sont vérifiées sur 100 simulations/);
+  assert.match(html, /routeChoiceDetailsHtml\(result,purchases\)/);
 });
 
 test('MS and GS are regular route candidates optimized through run time', () => {

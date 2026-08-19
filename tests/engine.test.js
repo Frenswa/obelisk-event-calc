@@ -146,32 +146,39 @@ test('dashboard markup has no duplicate static IDs', () => {
 
 test('displayed application version follows the requested sequence', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /v0\.23\.4\.6/);
+  assert.match(html, /v0\.23\.4\.7/);
 });
 
 test('route planner rejects redundant standalone damage during a one-shot horizon', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  const source = html.match(/function routeDamageOnlyRedundant\(stats,tier,index,target\)[\s\S]*?(?=\nwindow\.__routeDamageOnlyRedundant)/)?.[0];
+  const source = html.match(/function routeRelevantPlayerStats\(stats,tier,index,target\)[\s\S]*?(?=\nwindow\.__routeRelevantPlayerStats)/)?.[0];
   assert.ok(source, 'Missing one-shot route filter');
   const rules = {
     '1-0': { player: { ad: 1 } },
     '1-5': { player: { critChance: 0.01, critDamage: 0.1 } },
     '1-6': { player: { ad: 1, hp: 2 } },
+    '2-4': { player: { ad: 1, as: 0.01 } },
     '4-2': { player: { critDamage: 0.1 }, enemy: { critDamage: 0.1 } }
   };
-  const redundant = new Function('upgradeRule', 'DATA', `${source}; return routeDamageOnlyRedundant;`)(
+  const helpers = new Function('upgradeRule', 'DATA', `${source}; return { routeRelevantPlayerStats, routeDamageOnlyRedundant };`)(
     (tier, index) => rules[`${tier}-${index}`] || {},
     { monster: { hpBase: 11, hpPerWave: 7 } }
   );
+  const { routeRelevantPlayerStats: relevant, routeDamageOnlyRedundant: redundant } = helpers;
   const frenswaStats = { ad: 1324 };
   assert.equal(redundant(frenswaStats, 1, 0, 110), true, 'AD should be skipped while wave 110 is one-shot');
   assert.equal(redundant(frenswaStats, 1, 5, 110), true, 'Player CC/CD should be skipped while wave 110 is one-shot');
   assert.equal(redundant(frenswaStats, 1, 6, 110), false, 'AD + HP must remain eligible for its HP effect');
   assert.equal(redundant(frenswaStats, 4, 2, 110), false, 'Enemy CD reduction must remain eligible');
   assert.equal(redundant(frenswaStats, 1, 0, 189), false, 'AD must return when the horizon exceeds the one-shot threshold');
-  assert.match(html, /playerStats\.every\(stat=>stat==='ad'\|\|stat==='critChance'\|\|stat==='critDamage'\)/);
+  assert.deepEqual(relevant(frenswaStats, 1, 6, 110), ['hp'], 'AD + HP must be valued only through HP while AD is redundant');
+  assert.deepEqual(relevant(frenswaStats, 2, 4, 110), ['as'], 'AD + AS must be valued only through AS while AD is redundant');
+  assert.deepEqual(relevant(frenswaStats, 1, 0, 110), [], 'Standalone AD must have no relevant component while one-shotting');
+  assert.deepEqual(relevant(frenswaStats, 1, 0, 189), ['ad'], 'AD must regain weight beyond the one-shot horizon');
+  assert.match(html, /playerStats\.filter\(stat=>stat!==['"]ad['"]&&stat!==['"]critChance['"]&&stat!==['"]critDamage['"]\)/);
   assert.match(html, /maximumHp=DATA\.monster\.hpBase\+DATA\.monster\.hpPerWave\*\(wave-1\)/);
   assert.match(html, /availableActions\(state,pr,target\)/);
+  assert.match(html, /__availableRouteActions\(state,pr,target\)/);
   assert.match(html, /redundantDamage=routeDamageOnlyRedundant\(stats,tier,index,target\)/);
   assert.match(html, /window\.__routeDamageOnlyRedundant\(state\.stats,tier,index,target\)/);
   assert.match(html, /desired=neededAsGateway\?1:state\.levels\[tier\]\[index\]/);

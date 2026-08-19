@@ -146,7 +146,7 @@ test('dashboard markup has no duplicate static IDs', () => {
 
 test('displayed application version follows the requested sequence', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /v0\.23\.4\.9/);
+  assert.match(html, /v0\.23\.4\.10/);
 });
 
 test('route planner rejects redundant standalone damage during a one-shot horizon', () => {
@@ -209,14 +209,17 @@ test('final route choice uses currency per minute only inside a near-equal ETA b
   assert.match(html, /chooseRoute\(evaluatedCandidates,currentTime,\{prestigeSprint,maxRuns,baseRates\}\)/);
 });
 
-test('simulation renders an expandable explanation for the selected route', () => {
+test('simulation renders raw route weights and ranked alternatives', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /function routePurchaseExplanation\(entry,result\)/);
+  assert.match(html, /function routeWeightSnapshot\(route,currentTime\)/);
+  assert.match(html, /beamScore=kills-runsPenalty-burdenPenalty-depthPenalty/);
+  assert.match(html, /function routePurchaseWeights\(entry,result\)/);
   assert.match(html, /function routeChoiceDetailsHtml\(result,purchases\)/);
-  assert.match(html, /Pourquoi ces achats \?/);
-  assert.match(html, /AD[^<]*sans valeur sur cet horizon|sans valeur sur cet horizon/);
-  assert.match(html, /Le calcul choisit la route complète, pas chaque ligne isolément/);
-  assert.match(html, /Les routes finales sont vérifiées sur 100 simulations/);
+  assert.match(html, /Poids bruts et routes comparées/);
+  assert.match(html, /poids 0 sur V/);
+  assert.match(html, /beam = kills − 0\.18×runs − 0\.025×resourceBurden − 0\.006×levels/);
+  assert.match(html, /Economy score = moyenne logarithmique/);
+  assert.match(html, /alternatives:rankedAlternatives\.slice\(0,6\)/);
   assert.match(html, /routeChoiceDetailsHtml\(result,purchases\)/);
 });
 

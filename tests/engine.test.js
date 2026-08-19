@@ -146,7 +146,7 @@ test('dashboard markup has no duplicate static IDs', () => {
 
 test('displayed application version follows the requested sequence', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /v0\.23\.4\.7/);
+  assert.match(html, /v0\.23\.4\.8/);
 });
 
 test('route planner rejects redundant standalone damage during a one-shot horizon', () => {
@@ -182,7 +182,31 @@ test('route planner rejects redundant standalone damage during a one-shot horizo
   assert.match(html, /redundantDamage=routeDamageOnlyRedundant\(stats,tier,index,target\)/);
   assert.match(html, /window\.__routeDamageOnlyRedundant\(state\.stats,tier,index,target\)/);
   assert.match(html, /desired=neededAsGateway\?1:state\.levels\[tier\]\[index\]/);
-  assert.match(html, /obelisk-early-route-table-v9/);
+  assert.match(html, /obelisk-early-route-table-v10/);
+});
+
+test('route search builds effect packages and keeps separate shop preference profiles', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  assert.match(html, /const ROUTE_PACKAGE_LIMIT=6/);
+  assert.match(html, /function preferredRouteExpansions\(state,pr,target,balances,gains,maxRuns=Infinity\)/);
+  assert.match(html, /routeOutcomeKey\(probe\)===baseOutcome/);
+  assert.match(html, /probe\.routePackageBridge=routeOutcomeKey\(probe\)===baseOutcome/);
+  assert.match(html, /frontier\.filter\(state=>state\.routePackageBridge\)\.forEach\(add\)/);
+  assert.match(html, /b\.routePackageBridge&&a\.routePackageKey!==b\.routePackageKey/);
+  assert.match(html, /grouped\.set\(action\.tier,tierStates\)/);
+  assert.match(html, /flatMap\(states=>routeShopFrontier\(states\)\)/);
+  assert.match(html, /for\(let currency=0;currency<4;currency\+\+\)/);
+  assert.match(html, /preferredRouteExpansions\(state,pr,target,balances,gains,maxRuns\)/);
+});
+
+test('final route choice uses currency per minute only inside a near-equal ETA band', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  assert.match(html, /function routeEconomyScore\(route,baseRates=\[\]\)/);
+  assert.match(html, /Math\.log\(\(entry\.value\+1e-6\)\/\(entry\.base\+1e-6\)\)/);
+  assert.match(html, /etaTolerance=Math\.max\(1,currentTime\*\.015\)/);
+  assert.match(html, /bestOptimizationTime=Math\.min\(\.\.\.valid\.map\(route=>route\.optimizationTime\)\)/);
+  assert.match(html, /a\.optimizationTime<=bestOptimizationTime\+etaTolerance/);
+  assert.match(html, /chooseRoute\(evaluatedCandidates,currentTime,\{prestigeSprint,maxRuns,baseRates\}\)/);
 });
 
 test('MS and GS are regular route candidates optimized through run time', () => {

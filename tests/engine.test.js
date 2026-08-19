@@ -146,7 +146,7 @@ test('dashboard markup has no duplicate static IDs', () => {
 
 test('displayed application version follows the requested sequence', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /v0\.23\.4\.12/);
+  assert.match(html, /v0\.23\.4\.14/);
 });
 
 test('route planner rejects redundant standalone damage during a one-shot horizon', () => {
@@ -209,10 +209,12 @@ test('final route choice uses currency per minute only inside a near-equal ETA b
   assert.match(html, /chooseRoute\(evaluatedCandidates,currentTime,\{prestigeSprint,maxRuns,baseRates,spendBudget,balances\}\)/);
 });
 
-test('final budget pass prioritizes spending every shop budget before ETA tie-breaks', () => {
+test('final budget pass uses budget only after prestige value and reuses precalculated probes', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
   assert.match(html, /function routeBudgetUse\(route,balances=route\.budgetBalances\|\|\[\]\)/);
   assert.match(html, /score:coverage\+average\*\.25/);
+  assert.match(html, /if\(!aNear\)return a\.optimizationTime-b\.optimizationTime/);
+  assert.match(html, /const economyDelta=b\.economyScore-a\.economyScore/);
   assert.match(html, /if\(spendBudget\)\{const budgetDelta=routeBudgetUse\(b,balances\)\.score-routeBudgetUse\(a,balances\)\.score/);
   assert.match(html, /state\.spendBudget/);
   assert.match(html, /!spendBudget/);
@@ -224,7 +226,11 @@ test('final budget pass prioritizes spending every shop budget before ETA tie-br
   assert.match(html, /function routeUsefulDominates\(a,b\)/);
   assert.match(html, /if\(spendBudget\)valid=valid\.filter/);
   assert.match(html, /routeUsefulDominates\(other,route\)/);
-  assert.match(html, /Le budget est dépensé uniquement dans les améliorations simulées ou nécessaires/);
+  assert.match(html, /Une route plus chère sans meilleur clear, temps ou rendement est supprimée/);
+  assert.match(html, /if\(options\.budgetProbe&&precalculated\?\.seed/);
+  assert.match(html, /precalculatedProbe:true/);
+  assert.match(html, /Optimisation finale du palier/);
+  assert.match(html, /const optimizedBase=await baseFind\(affordableThrough,\{maxRuns:0,skipSequential:true\}\)/);
 });
 
 test('budget spending rejects identical expensive routes but keeps measurable upgrades', () => {
@@ -241,6 +247,19 @@ test('budget spending rejects identical expensive routes but keeps measurable up
   assert.ok(helpers.routeBudgetUse(useful, [1000, 1000, 1000, 1000]).score > helpers.routeBudgetUse(cheap, [1000, 1000, 1000, 1000]).score);
 });
 
+test('spending more cannot beat a materially faster prestige route', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+  const budgetSource = html.match(/function routeBudgetUse\(route,balances=route\.budgetBalances\|\|\[\]\)[\s\S]*?(?=\nfunction selectBeam)/)?.[0];
+  const comparatorSource = html.match(/function routeFinalComparator\(valid,currentTime,prestigeSprint=false,spendBudget=false,balances=\[\]\)[\s\S]*?(?=\nfunction routeWeightSnapshot)/)?.[0];
+  assert.ok(budgetSource && comparatorSource, 'Missing route comparator helpers');
+  const comparator = new Function(`${budgetSource}\n${comparatorSource}; return routeFinalComparator;`)();
+  const fast = { optimizationTime: 100, economyScore: 0, clearQuality: 80, chance: 80, resourceBurden: 10, spent: [100, 100, 100, 100] };
+  const wasteful = { ...fast, optimizationTime: 120, spent: [900, 900, 900, 900] };
+  const closeUseful = { ...fast, optimizationTime: 101, spent: [200, 200, 200, 200] };
+  assert.ok(comparator([fast, wasteful], 100, false, true, [1000, 1000, 1000, 1000])(fast, wasteful) < 0);
+  assert.ok(comparator([fast, closeUseful], 100, false, true, [1000, 1000, 1000, 1000])(closeUseful, fast) < 0);
+});
+
 test('simulation renders raw route weights and ranked alternatives', () => {
   const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
   assert.match(html, /function routeWeightSnapshot\(route,currentTime\)/);
@@ -250,7 +269,7 @@ test('simulation renders raw route weights and ranked alternatives', () => {
   assert.match(html, /Poids bruts et routes comparées/);
   assert.match(html, /poids 0 sur V/);
   assert.match(html, /beam = kills − 0\.18×runs − 0\.025×resourceBurden − 0\.006×levels/);
-  assert.match(html, /final budget = clear ≥ 51 %, budgetScore le plus haut, puis ETA et economyScore/);
+  assert.match(html, /final = clear ≥ 51 %, ETA vers le prestige, economyScore, fiabilité, puis budgetScore/);
   assert.match(html, /alternatives:rankedAlternatives\.slice\(0,6\)/);
   assert.match(html, /routeChoiceDetailsHtml\(result,purchases\)/);
 });
